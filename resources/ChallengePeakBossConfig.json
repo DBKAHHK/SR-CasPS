@@ -1,0 +1,69 @@
+{
+  "challenge_peak_boss_config": [
+    {
+      "ID": 104,
+      "HardTitle": {
+        "Hash": -829434279,
+        "Hash64": 7760170859122248016
+      },
+      "BuffList": [
+        3033006,
+        3033007,
+        3033008
+      ],
+      "ColorMedalTarget": 6,
+      "HardTarget": 3007,
+      "HardEventIDList": [
+        30501022
+      ],
+      "HardTagList": [
+        3033010,
+        3033013,
+        3033019
+      ]
+    },
+    {
+      "ID": 204,
+      "HardTitle": {
+        "Hash": -829434376,
+        "Hash64": 1050453030874697501
+      },
+      "BuffList": [
+        3033020,
+        3033021,
+        3033022
+      ],
+      "ColorMedalTarget": 6,
+      "HardTarget": 3007,
+      "HardEventIDList": [
+        30502022
+      ],
+      "HardTagList": [
+        3033013,
+        3033019
+      ]
+    },
+    {
+      "ID": 304,
+      "HardTitle": {
+        "Hash": -829434345,
+        "Hash64": 18174992387478714442
+      },
+      "BuffList": [
+        3033032,
+        3033033,
+        3033034
+      ],
+      "ColorMedalTarget": 6,
+      "HardTarget": 3007,
+      "HardEventIDList": [
+        30503022
+      ],
+      "HardTagList": [
+        3033029,
+        3033040,
+        3033036
+      ]
+    }
+  ]
+}

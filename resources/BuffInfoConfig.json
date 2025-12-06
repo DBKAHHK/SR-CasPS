@@ -1,0 +1,835 @@
+{
+    "text_map_config": [
+        {
+            "GroupID": 3001,
+            "BuffList1": [
+                {
+                    "id": 3111008,
+                    "name": "Increases all allies' Break Effect by 50%. After dealing Super Break DMG to enemies, increases SPD by an amount equal to 40% of current SPD, lasting until the next action."
+                },
+                {
+                    "id": 3111010,
+                    "name": "Increases DMG dealt by all allies' Ultimates by 50%. After defeating an enemy target, the attacker's action is Advanced Forward by 25%."
+                },
+                {
+                    "id": 3111011,
+                    "name": "Before enemy units with Steadfast Safeguard are Weakness Broken, tally the amount of DoT they receive. When a unit is Weakness Broken, deal to this unit Additional DMG equal to 170% of the tallied DoT."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111008,
+                    "name": "Increases all allies' Break Effect by 50%. After dealing Super Break DMG to enemies, increases SPD by an amount equal to 40% of current SPD, lasting until the next action."
+                },
+                {
+                    "id": 3111009,
+                    "name": "Increases DMG dealt by all allies' Basic ATK and Skills by 50%. After defeating an enemy target, the attacker's action is Advanced Forward by 25%."
+                },
+                {
+                    "id": 3111012,
+                    "name": "Before enemy units with Steadfast Safeguard are Weakness Broken, tally the amount of Follow-up ATK DMG they receive. When the unit is Weakness Broken, deal to this unit Additional DMG equal to 200% of the tallied DMG."
+                }
+            ]
+        },
+        {
+            "GroupID": 3002,
+            "BuffList1": [
+                {
+                    "id": 3111015,
+                    "name": "Follow-up ATKs/Counters will also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50%/100% of the original Toughness Reduction from abilities."
+                },
+                {
+                    "id": 3111013,
+                    "name": "The DMG dealt by all allies' Basic ATK increases by 25%, with an additional increase of 25% against targets that are Weakness Broken."
+                },
+                {
+                    "id": 3111014,
+                    "name": "When an ally breaks an enemy target's Weakness, Advances Action Forward by 25%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111015,
+                    "name": "Follow-up ATKs/Counters will also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50%/100% of the original Toughness Reduction from abilities."
+                },
+                {
+                    "id": 3111016,
+                    "name": "Increases Break DMG taken by all enemies by 20%."
+                },
+                {
+                    "id": 3111017,
+                    "name": "Increases CRIT DMG dealt by all allies' Skill by 40%, with an additional increase of 40% against targets who are Weakness Broken."
+                }
+            ]
+        },
+        {
+            "GroupID": 3003,
+            "BuffList1": [
+                {
+                    "id": 3111021,
+                    "name": "Follow-up ATK DMG dealt by characters ignores 15% of the enemy target's All-Type RES and can also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50% of the original Toughness Reduction from the ability."
+                },
+                {
+                    "id": 3111022,
+                    "name": "Character's Ice DMG dealt increases by 55%."
+                },
+                {
+                    "id": 3111023,
+                    "name": "When an ally breaks an enemy target's Weakness, Advance their Action Forward by 15%. This effect can trigger a max of #2[i] time(s) per turn."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111018,
+                    "name": "When characters attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately deal DMG equal to 80% of the original DMG. This effect can trigger a max of #2[i] time(s) on each character in a single turn."
+                },
+                {
+                    "id": 3111019,
+                    "name": "After defeating enemy targets, increase Break DMG taken by all enemies by 5% to a max of #2[i] stack(s). This effect will also take effect on new enemies entering the battlefield."
+                },
+                {
+                    "id": 3111020,
+                    "name": "Increases the CRIT DMG of Ultimate DMG dealt by 30%, with an additional increase of 30% against enemy targets that are Weakness Broken."
+                }
+            ]
+        },
+        {
+            "GroupID": 3004,
+            "BuffList1": [
+                {
+                    "id": 3111028,
+                    "name": "Increases the DMG dealt by all allies' Basic ATKs by 50%."
+                },
+                {
+                    "id": 3111027,
+                    "name": "After defeating any enemy target, advances all ally targets' actions by 10%."
+                },
+                {
+                    "id": 3111021,
+                    "name": "Follow-up ATK DMG dealt by characters ignores 15% of the enemy target's All-Type RES and can also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50% of the original Toughness Reduction from the ability."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111024,
+                    "name": "After a character uses Follow-up ATK, advances their action by 15%. This effect can be triggered a max of #2[i] time(s) per character before their next action."
+                },
+                {
+                    "id": 3111025,
+                    "name": "The Weakness Break Efficiency increases by 25% when characters deal Ultimate DMG."
+                },
+                {
+                    "id": 3111026,
+                    "name": "Increases all ally characters' Break Effect by 50%. When a character Breaks an enemy target's Weakness, regenerates #2[i] Energy to the character."
+                }
+            ]
+        },
+        {
+            "GroupID": 3005,
+            "BuffList1": [
+                {
+                    "id": 3111030,
+                    "name": "Increases all enemies' Break DMG taken by 10%. After Breaking an enemy's Weakness, increases all allies' SPD by 20% for #3[i] turn(s)"
+                },
+                {
+                    "id": 3111033,
+                    "name": "Before enemy units with \"Steadfast Safeguard\" are Weakness Broken, tally the amount of DoT they receive. When a unit is Weakness Broken, deals Additional DMG to this unit equal to 200% of the tallied DoT."
+                },
+                {
+                    "id": 3111034,
+                    "name": "Increases Quantum DMG dealt by all allies' by 60%. After defeating an enemy target, advances the attacker's action by 15%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111029,
+                    "name": "When using Skill or Ultimate on one ally target, increases the ability target's ATK by 25%, lasting for #2[i] turn(s). This effect can stack up to #3[i] time(s)."
+                },
+                {
+                    "id": 3111032,
+                    "name": "Increases Ultimate DMG dealt by all allies to Weakness Broken enemies by 70%."
+                },
+                {
+                    "id": 3111031,
+                    "name": "Increases Basic ATK and Skill DMG dealt by all allies by 55%."
+                }
+            ]
+        },
+        {
+            "GroupID": 3006,
+            "BuffList1": [
+                {
+                    "id": 3111035,
+                    "name": "When 2 or more characters following the Path of Erudition are in the team, increases all allies' ATK by 60%."
+                },
+                {
+                    "id": 3111036,
+                    "name": "Increases Physical DMG dealt by all allies by 50% and Effect RES by 50%."
+                },
+                {
+                    "id": 3111037,
+                    "name": "When an ally unit Breaks an Enemy target's Weakness, advances the ally unit's action by 20%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111038,
+                    "name": "When characters attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately deal DMG equal to 60% of the original DMG. This effect can trigger a max of #2[i] time(s) on each character in a single turn."
+                },
+                {
+                    "id": 3111039,
+                    "name": "After defeating enemy targets, increase Break DMG taken by all enemies by 5% to a max of #2[i] stack(s). This effect will also take effect on new enemies entering the battlefield."
+                },
+                {
+                    "id": 3111040,
+                    "name": "Increases CRIT DMG of all allies' Basic ATK and Ultimate DMG dealt by 30%, with an additional increase of 30% against enemy targets that are Weakness Broken."
+                }
+            ]
+        },
+        {
+            "GroupID": 3007,
+            "BuffList1": [
+                {
+                    "id": 3111041,
+                    "name": "Increases DMG dealt by all allies' Basic ATK by 50%. After defeating an enemy target, advances the attacker's action by 10%."
+                },
+                {
+                    "id": 3111042,
+                    "name": "Increases the SPD of all allies by 15% and reduces their DMG taken by 15%."
+                },
+                {
+                    "id": 3111043,
+                    "name": "Follow-up ATK DMG dealt by characters ignores 15% of the enemy target's All-Type RES and can also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50% of the original Toughness Reduction from the ability."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111044,
+                    "name": "When using Skill or Ultimate on one ally target, increases the ability target's CRIT DMG by 35%, lasting for #2[i] turn(s). This effect can stack up to #3[i] time(s)."
+                },
+                {
+                    "id": 3111045,
+                    "name": "Increases all enemies' Break DMG taken by 10%. After Breaking an enemy's Weakness, increases all allies' SPD by 20% for #3[i] turn(s)."
+                },
+                {
+                    "id": 3111046,
+                    "name": "Increases all allies' Skill DMG and Ultimate DMG dealt by 50%."
+                }
+            ]
+        },
+        {
+            "GroupID": 3008,
+            "BuffList1": [
+                {
+                    "id": 3111047,
+                    "name": "While any character following the Path of Erudition is in the team, increases all allies' All-Type RES PEN by 15%."
+                },
+                {
+                    "id": 3111048,
+                    "name": "Increases Ultimate DMG dealt by all allies by 50% and Effect RES by 50%."
+                },
+                {
+                    "id": 3111049,
+                    "name": "After any ally target consumes their own HP, increases their DMG dealt by 55% for #2[i] turn(s)."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111050,
+                    "name": "When any ally target Breaks an enemy target's Weakness, increases all ally targets' SPD by 20% for #2[i] turn(s)."
+                },
+                {
+                    "id": 3111051,
+                    "name": "After any ally target's HP was consumed, they restore HP equal to 60% of the HP consumed. This can restore a maximum of 50% HP per turn."
+                },
+                {
+                    "id": 3111052,
+                    "name": "Increases ally targets' Follow-up ATK DMG dealt by 30%, with an additional increase of 30% against enemy targets that are Weakness Broken."
+                }
+            ]
+        },
+        {
+            "GroupID": 3009,
+            "BuffList1": [
+                {
+                    "id": 3111053,
+                    "name": "Increases memosprite's Weakness Break Efficiency by 50%. Ignores 20% of the target's DEF when memosprite deals DMG."
+                },
+                {
+                    "id": 3111018,
+                    "name": "When characters attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately deal DMG equal to 80% of the original DMG. This effect can trigger a max of #2[i] time(s) on each character in a single turn."
+                },
+                {
+                    "id": 3111020,
+                    "name": "Increases the CRIT DMG of Ultimate DMG dealt by 30%, with an additional increase of 30% against enemy targets that are Weakness Broken."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111055,
+                    "name": "Increases Physical DMG dealt by all allies by 50%. When a unit uses a Skill, restores 20% of that unit's HP."
+                },
+                {
+                    "id": 3111021,
+                    "name": "Follow-up ATK DMG dealt by characters ignores 15% of the enemy target's All-Type RES and can also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50% of the original Toughness Reduction from the ability."
+                },
+                {
+                    "id": 3111030,
+                    "name": "Increases all enemies' Break DMG taken by 10%. After Breaking an enemy's Weakness, increases all allies' SPD by 20% for #3[i] turn(s)"
+                }
+            ]
+        },
+        {
+            "GroupID": 3010,
+            "BuffList1": [
+                {
+                    "id": 3111056,
+                    "name": "The DMG dealt by the character in position 1 in the lineup increases by 60%. For every #2[i] Skill Points consumed, 1 Skill Point is recovered."
+                },
+                {
+                    "id": 3111057,
+                    "name": "After any ally target consumes their own HP, increases their DMG dealt by 40% for #2[i] turn(s)."
+                },
+                {
+                    "id": 3111058,
+                    "name": "After an ally target deals DoT to an enemy, #1[i] Energy is regenerated. DoT dealt by all allies ignores 30% of enemy targets' All-Type RES."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111046,
+                    "name": "Increases all allies' Skill DMG and Ultimate DMG dealt by 50%."
+                },
+                {
+                    "id": 3111014,
+                    "name": "When an ally breaks an enemy target's Weakness, Advances Action Forward by 25%."
+                },
+                {
+                    "id": 3111021,
+                    "name": "Follow-up ATK DMG dealt by characters ignores 15% of the enemy target's All-Type RES and can also reduce the Toughness of targets that do not have the corresponding Weakness, with the effect being equivalent to 50% of the original Toughness Reduction from the ability."
+                }
+            ]
+        },
+        {
+            "GroupID": 3011,
+            "BuffList1": [
+                {
+                    "id": 3111062,
+                    "name": "When an ally target consumes 1 Skill Point, increases the DMG dealt by all allies by 6%, stacking up to #2[i] time(s)."
+                },
+                {
+                    "id": 3111063,
+                    "name": "After defeating enemy targets, increases Break DMG taken by all enemies by 15% to a max of #2[i] stack(s). This effect will also take effect on new enemies entering the battlefield."
+                },
+                {
+                    "id": 3111061,
+                    "name": "After any ally target consumes their own HP, their CRIT DMG increases by 55%, lasting for #2[i] turn(s)."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111059,
+                    "name": "Increases Ultimate DMG dealt by all allies by 30%, and additionally increases by 30% against enemy targets in Weakness Broken state."
+                },
+                {
+                    "id": 3111060,
+                    "name": "When allies use Basic ATK or Skill to attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately deal DMG equal to 15% of the original DMG."
+                },
+                {
+                    "id": 3111064,
+                    "name": "After the character in position 1 in the team uses Ultimate, their Weakness Break Efficiency increases by 50% and increases CRIT DMG by 50%, lasting for #3[i] turn(s)."
+                }
+            ]
+        },
+        {
+            "GroupID": 3012,
+            "BuffList1": [
+                {
+                    "id": 3111068,
+                    "name": "Increases Physical DMG dealt by all allies by 50%, and decreases all enemies' Physical RES by 20%."
+                },
+                {
+                    "id": 3111069,
+                    "name": "When allies use Basic ATK or Skill to attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately produce DMG equal to 20% of the original DMG."
+                },
+                {
+                    "id": 3111070,
+                    "name": "Increases all enemies' Break DMG taken by 10%. After Breaking an enemy's Weakness, increases all allies' SPD by 20% for #3[i] turn(s)."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111065,
+                    "name": "DMG dealt by memosprites ignores 20% of the target's DEF."
+                },
+                {
+                    "id": 3111066,
+                    "name": "Increases all allies' Skill DMG by 30%. At the start of their turn, if their current HP percentage is equal to or lower than 1%, restores HP equal to 15% of their Max HP."
+                },
+                {
+                    "id": 3111067,
+                    "name": "When a character uses Ultimate, their Weakness Break Efficiency increases by 100% and CRIT DMG increases by 40%, lasting for #3[i] turn(s)."
+                }
+            ]
+        },
+        {
+            "GroupID": 3013,
+            "BuffList1": [
+                {
+                    "id": 3111068,
+                    "name": "Increases Physical DMG dealt by all allies by 50%, and decreases all enemies' Physical RES by 20%."
+                },
+                {
+                    "id": 3111069,
+                    "name": "When allies use Basic ATK or Skill to attack Weakness Broken enemies, all DoTs currently applied to the enemies will immediately produce DMG equal to 20% of the original DMG."
+                },
+                {
+                    "id": 3111070,
+                    "name": "Increases all enemies' Break DMG taken by 10%. After Breaking an enemy's Weakness, increases all allies' SPD by 20% for #3[i] turn(s)."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3111065,
+                    "name": "DMG dealt by memosprites ignores 20% of the target's DEF."
+                },
+                {
+                    "id": 3111066,
+                    "name": "Increases all allies' Skill DMG by 30%. At the start of their turn, if their current HP percentage is equal to or lower than 1%, restores HP equal to 15% of their Max HP."
+                },
+                {
+                    "id": 3111067,
+                    "name": "When a character uses Ultimate, their Weakness Break Efficiency increases by 100% and CRIT DMG increases by 40%, lasting for #3[i] turn(s)."
+                }
+            ]
+        },
+        {
+            "GroupID": 2001,
+            "BuffList1": [
+                {
+                    "id": 3031301,
+                    "name": "When allies use an Ultimate to attack targets, inflicts 2 stacks of Shatter to the target."
+                },
+                {
+                    "id": 3031302,
+                    "name": "When enemies enter battle, there is a 80% chance to instantly receive 1 stack of Shatter."
+                },
+                {
+                    "id": 3031303,
+                    "name": "When enemy targets with Shatter are defeated, increases DMG dealt by Ultimate for all allies in this battle by 15%, stacking up to #2[i] times."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2002,
+            "BuffList1": [
+                {
+                    "id": 3031304,
+                    "name": "When an enemy takes DoT, adjacent targets also take DoT of the same type by an amount equal to 60% of the original DMG dealt."
+                },
+                {
+                    "id": 3031305,
+                    "name": "After allies attack enemies, inflicts Wind Shear on the target, causing the target to take a set amount of Wind DoT at the start of every turn."
+                },
+                {
+                    "id": 3031306,
+                    "name": "When an enemy takes DoT, the ally with the lowest HP percentage will heal for 10% of their Max HP, and their action will be Advanced Forward by 8%."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2003,
+            "BuffList1": [
+                {
+                    "id": 3031307,
+                    "name": "Characters' Follow-up ATKs deal 50% increased DMG, and this effect will be triggered 1 additional time after triggering Whimsicality's effect."
+                },
+                {
+                    "id": 3031308,
+                    "name": "When Ultimate deals DMG to the enemy target, it will be considered as a Follow-up ATK."
+                },
+                {
+                    "id": 3031309,
+                    "name": "Whenever a character hits an enemy with a Follow-up ATK, all allies' actions are Advanced Forward by 14%. This effect can only be triggered once for each attack."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2004,
+            "BuffList1": [
+                {
+                    "id": 3031310,
+                    "name": "When allies use a Skill to attack enemy targets, there is a 80% fixed chance to inflict Shatter to the target."
+                },
+                {
+                    "id": 3031311,
+                    "name": "When enemy targets use their abilities, inflicts 1 stack of Scalded on them and adjacent units. While in the Scalded state, targets receive 10% more DMG, stacking up to #2[i] stack(s). This effect is effective on the set amount of DMG from the Whimsicality effect."
+                },
+                {
+                    "id": 3031312,
+                    "name": "After characters use an Ultimate to attack, their action is Advanced Forward by 25% and deals 100% more DMG, lasting for #1[i] turn(s)."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2005,
+            "BuffList1": [
+                {
+                    "id": 3031313,
+                    "name": "Whimsicality no longer requires accumulated DMG dealt by Follow-up ATK. Instead, it triggers after allies use #1[i] instances of Follow-up ATK and the DMG dealt by this effect increases by 60%."
+                },
+                {
+                    "id": 3031314,
+                    "name": "When the Whimsicality effect is triggered, regenerates Energy for all allies equal to 35% of their respective Max Energy. Energy recovered via this effect can exceed the ally's Max Energy."
+                },
+                {
+                    "id": 3031315,
+                    "name": "Apart from Follow-up ATKs, all other kinds of DMG dealt by allies can also accumulate progress equal to 18% of the original DMG amount."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2006,
+            "BuffList1": [
+                {
+                    "id": 3031316,
+                    "name": "When enemy targets are defeated, the DoTs on them have a 100% base chance to be transferred to all enemies."
+                },
+                {
+                    "id": 3031317,
+                    "name": "After enemy targets enter battle, they become afflicted by Wind Shear. At the start of every turn, they receive a set amount of Wind DoT and inflict Wind Shear on themselves and adjacent enemy targets."
+                },
+                {
+                    "id": 3031318,
+                    "name": "When 3 or more characters following the Path of Nihility are in the team, increases all allies' DMG dealt by 60% and SPD by 30%."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2007,
+            "BuffList1": [
+                {
+                    "id": 3031319,
+                    "name": "Reduces the Charge points required to trigger Whimsicality by #1[i] and deals DMG #2[i] more time(s)."
+                },
+                {
+                    "id": 3031320,
+                    "name": "Increases DMG dealt from allies by Ultimate by 30%. After the Ultimate is used, Whimsicality additionally gains #2[i] point(s) of Charge."
+                },
+                {
+                    "id": 3031321,
+                    "name": "After allies attack enemy targets, Whimsicality additionally gains #1[i] point(s) of Charge."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2008,
+            "BuffList1": [
+                {
+                    "id": 3031303,
+                    "name": "When enemy targets with Shatter are defeated, increases DMG dealt by Ultimate for all allies in this battle by 15%, stacking up to #2[i] times."
+                },
+                {
+                    "id": 3031322,
+                    "name": "Increases DMG dealt with Shatter by 20%. When triggered, applies 1 stack of Shatter to adjacent targets."
+                },
+                {
+                    "id": 3031323,
+                    "name": "When allies' Follow-up ATKs hit enemy targets, there is a 60% fixed chance to apply 1 stack of Shatter to the target. This effect can only be triggered 1 time per attack per enemy target."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2009,
+            "BuffList1": [
+                {
+                    "id": 3031324,
+                    "name": "Increases the Break DMG taken by all enemies by 10%. If allies dealt Super Break DMG to enemies after using an attack, additionally Charges Whimsicality by #2[i] points."
+                },
+                {
+                    "id": 3031325,
+                    "name": "Follow-up ATK DMG dealt increases by 50%. Follow-up ATKs' Weakness Break Efficiency increases by 50%."
+                },
+                {
+                    "id": 3031326,
+                    "name": "When characters launch attacks by using their Ultimate, they will ignore the enemy targets' Weakness to cause Toughness Reduction."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2010,
+            "BuffList1": [
+                {
+                    "id": 3031330,
+                    "name": "Increases all allies' Break Effect by 30%. When Breaking enemy targets, all enemies become afflicted with Wind Shear, taking a set amount of Wind DoT at the start of every turn.\\nAll enemies become immune to Crowd Control debuffs."
+                },
+                {
+                    "id": 3031331,
+                    "name": "After any ally target uses Ultimate to attack any enemy target and if the target currently has 1/2/3 types of DoTs, each currently active DoT immediately deals DMG equal to 60% / 100% / 150% of the original DMG."
+                },
+                {
+                    "id": 3031305,
+                    "name": "After allies attack enemies, inflicts Wind Shear on the target, causing the target to take a set amount of Wind DoT at the start of every turn."
+                }
+            ],
+            "BuffList2": []
+        },
+        {
+            "GroupID": 2011,
+            "BuffList1": [
+                {
+                    "id": 3031327,
+                    "name": "During Surging Grit, all ally Skills do not consume Skill Points. After characters use Skills or Ultimate, they gain 1 stack of \"Feverish Surge\" for every enemy target hit. These stacks will increase said characters' Skill and Ultimate DMG by 4% and SPD by 4% to a max of #3[i] stack(s)."
+                },
+                {
+                    "id": 3031328,
+                    "name": "During Surging Grit, increases all allies' Follow-up ATK DMG by 40%. After triggering a Follow-up ATK, deals a set amount of DMG to every attacked enemy target and adjacent target."
+                },
+                {
+                    "id": 3031329,
+                    "name": "During Surging Grit, increases Break DMG received by enemy targets by 30%. When characters Break enemy targets' Weaknesses, advances the character's action by 12%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031202,
+                    "name": "After allies use Skill to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031203,
+                    "name": "At the start of battle, after an ally uses their Skill to attack an enemy target, deals a set amount of DMG to all attacked enemy targets."
+                },
+                {
+                    "id": 3031204,
+                    "name": "Upon entering Surging Grit, advances all allies actions by #1[i]% and increases DMG received by enemy targets during this period by #2[i]%. Additionally, after an ally uses their Skill to attack an enemy target, deals an additional set amount of DMG to all attacked enemy targets and adjacent targets."
+                }
+            ]
+        },
+        {
+            "GroupID": 2012,
+            "BuffList1": [
+                {
+                    "id": 3031333,
+                    "name": "During Surging Grit, all allies' SPD increases by 40%. When all \"Resound\" is consumed in an attack, recover 1 Skill Point."
+                },
+                {
+                    "id": 3031332,
+                    "name": "During Surging Grit, after an enemy target is defeated by any unit, there is a 50% chance for all allies to gain 1 stack of \"Resound.\""
+                },
+                {
+                    "id": 3031334,
+                    "name": "When entering Surging Grit, activates the Ultimate of the first character on the team lineup and increases their DMG dealt by Ultimate during Surging Grit by 50%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031207,
+                    "name": "After allies use Ultimate to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031208,
+                    "name": "After an enemy target is defeated by any unit, all allies gain 1 stack of \"Resound.\""
+                },
+                {
+                    "id": 3031209,
+                    "name": "When entering Surging Grit, consume all \"Resound.\" Each stack of \"Resound\" deals 1 instance of a set amount of DMG to a random enemy target. During Surging Grit, increases enemy targets' DMG taken by #3[i]%, and after they are defeated by any unit, all allies additionally gain 1 stack of \"Resound.\" When \"Resound\" stacks up to #1[i] or higher, consumes all \"Resound\" stacks and deals 1 instance of a set amount of DMG to a random enemy target per stack."
+                }
+            ]
+        },
+        {
+            "GroupID": 2013,
+            "BuffList1": [
+                {
+                    "id": 3031335,
+                    "name": "During Surging Grit, after allies use their Skill or launch a Follow-up ATK against enemy targets with \"Shatter,\" \"Shatter\" can be immediately triggered."
+                },
+                {
+                    "id": 3031336,
+                    "name": "During Surging Grit, increases Break DMG taken by enemy targets by 30%. When targets in the \"Shatter\" state are defeated by any unit, deals #1[i] Toughness Reduction regardless of Weakness Type to adjacent enemy targets."
+                },
+                {
+                    "id": 3031337,
+                    "name": "During Surging Grit, when any character uses their Skill, consumes HP equal to 20% of their current HP. Additionally, after using Skill, restores HP equal to 20% of their Max HP."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031212,
+                    "name": "After an ally uses Basic ATK or Ultimate to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031213,
+                    "name": "When allies use their Basic ATK or Ultimate to attack any enemy targets, inflicts the target with \"Shatter,\" stacking up to #1[i] time(s). At the start of the target's turn or when the target is defeated by any unit, deals True DMG to the target based on the number of \"Shatter\" stacks."
+                },
+                {
+                    "id": 3031214,
+                    "name": "Upon entering Surging Grit, immediately regenerates #1[i]% Energy for all allies. The Energy regenerated by this effect can exceed the target's Max Energy. Increases DMG taken by enemy targets during this period by #2[i]%. Additionally, triggering \"Shatter\" will deal True DMG to all attacked enemy targets and adjacent targets."
+                }
+            ]
+        },
+        {
+            "GroupID": 2014,
+            "BuffList1": [
+                {
+                    "id": 3031327,
+                    "name": "During Surging Grit, all ally Skills do not consume Skill Points. After characters use Skills or Ultimate, they gain 1 stack of \"Feverish Surge\" for every enemy target hit. These stacks will increase said characters' Skill and Ultimate DMG by 4% and SPD by 4% to a max of #3[i] stack(s)."
+                },
+                {
+                    "id": 3031338,
+                    "name": "During Surging Grit, when any ally uses their Skill, consumes HP equal to 20% of their Max HP. Then, after using Skill, restores HP equal to 20% of their Max HP."
+                },
+                {
+                    "id": 3031329,
+                    "name": "During Surging Grit, increases Break DMG received by enemy targets by 30%. When characters Break enemy targets' Weaknesses, advances the character's action by 12%."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031202,
+                    "name": "After allies use Skill to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031203,
+                    "name": "At the start of battle, after an ally uses their Skill to attack an enemy target, deals a set amount of DMG to all attacked enemy targets."
+                },
+                {
+                    "id": 3031204,
+                    "name": "Upon entering Surging Grit, advances all allies actions by #1[i]% and increases DMG received by enemy targets during this period by #2[i]%. Additionally, after an ally uses their Skill to attack an enemy target, deals an additional set amount of DMG to all attacked enemy targets and adjacent targets."
+                }
+            ]
+        },
+        {
+            "GroupID": 2015,
+            "BuffList1": [
+                {
+                    "id": 3031333,
+                    "name": "During Surging Grit, all allies' SPD increases by 40%. When all \"Resound\" is consumed in an attack, recover 1 Skill Point."
+                },
+                {
+                    "id": 3031343,
+                    "name": "All allies can also reduce Toughness when attacking enemies that don't have the corresponding Weakness Type, with the effect equivalent to 50% of the original Toughness Reduction value. This cannot stack with other Toughness Reduction effects that also ignore Weakness Type. During Surging Grit, the Break DMG received by enemy targets increases by 30%."
+                },
+                {
+                    "id": 3031339,
+                    "name": "After consuming \"Resound\" to deal DMG, increases all allies' DMG dealt by 60% for #2[i] turn(s)."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031207,
+                    "name": "After allies use Ultimate to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031208,
+                    "name": "After an enemy target is defeated by any unit, all allies gain 1 stack of \"Resound.\""
+                },
+                {
+                    "id": 3031209,
+                    "name": "When entering Surging Grit, consume all \"Resound.\" Each stack of \"Resound\" deals 1 instance of a set amount of DMG to a random enemy target. During Surging Grit, increases enemy targets' DMG taken by #3[i]%, and after they are defeated by any unit, all allies additionally gain 1 stack of \"Resound.\" When \"Resound\" stacks up to #1[i] or higher, consumes all \"Resound\" stacks and deals 1 instance of a set amount of DMG to a random enemy target per stack."
+                }
+            ]
+        },
+        {
+            "GroupID": 2016,
+            "BuffList1": [
+                {
+                    "id": 3031340,
+                    "name": "During the \"Surging Grit\" period, the ally targets' DoT dealt ignores 20% of the target's All-Type RES. When the enemy target receives DoT, increases all allies DoT dealt by 1%. Up to a max of #3[i] stack(s). Lasts until \"Surging Grit\" ends."
+                },
+                {
+                    "id": 3031341,
+                    "name": "During Surging Grit, Skill DMG dealt by ally targets increases by 50%. When attacking targets with the special Wind Shear \"Echo Enigma,\" each stack of \"Echo Enigma\" additionally increases Skill DMG by 10%."
+                },
+                {
+                    "id": 3031342,
+                    "name": "Every stack of \"Echo Enigma\" increases enemy target's DMG received by 3%. During the Surging Grit period, when enemy targets enter combat, and after they take action, additionally adds #2[i] stack(s) of the special Wind Shear \"Echo Enigma.\""
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031217,
+                    "name": "Every time a DoT is received by an enemy target, additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031218,
+                    "name": "When an enemy target enters battle, they are inflicted with #1[i] stack(s) of \"Echo Enigma,\" which deals a special kind of Wind Shear, and they suffer #2[i] stack(s) of \"Echo Enigma\" after acting, receiving Wind DoT at the start of each turn. Goes up to #3[i] stack(s) at max for #4[i] turn(s)."
+                },
+                {
+                    "id": 3031219,
+                    "name": "Entering the \"Surging Grit\" state causes all enemies to suffer #5[i] stack(s) of the special Wind Shear \"Echo Enigma,\" and causes all currently suffered DoT to immediately produce DMG equal to #1[i]% of the original DMG. During the \"Surging Grit\" period, increases enemy targets' DMG received by #2[i]%, reduces DMG dealt by #3[i]%, and increases SPD by #4[i]%."
+                }
+            ]
+        },
+        {
+            "GroupID": 2017,
+            "BuffList1": [
+                {
+                    "id": 3031344,
+                    "name": "During \"Surging Grit,\" memosprite's DMG increases by 30%, and when memosprite disappears, memomaster's action advances by 15%."
+                },
+                {
+                    "id": 3031345,
+                    "name": "Upon entering \"Surging Grit,\" immediately recover #1[i] Skill Point(s). During \"Surging Grit,\" enemy targets take 30% more DoT."
+                },
+                {
+                    "id": 3031346,
+                    "name": "During \"Surging Grit,\" after an ally uses a Skill to attack enemy targets, they deal additional True DMG equal to 30% of the original damage to each enemy target hit."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031202,
+                    "name": "After allies use Skill to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031203,
+                    "name": "At the start of battle, after an ally uses their Skill to attack an enemy target, deals a set amount of DMG to all attacked enemy targets."
+                },
+                {
+                    "id": 3031204,
+                    "name": "Upon entering Surging Grit, advances all allies actions by #1[i]% and increases DMG received by enemy targets during this period by #2[i]%. Additionally, after an ally uses their Skill to attack an enemy target, deals an additional set amount of DMG to all attacked enemy targets and adjacent targets."
+                }
+            ]
+        },
+        {
+            "GroupID": 2018,
+            "BuffList1": [
+                {
+                    "id": 3031347,
+                    "name": "During \"Surging Grit\", when an ally target uses their Ultimate, increases all allies DMG dealt by 12%, stacking up to #2[i] times. This effect lasts until \"Surging Grit\" ends."
+                },
+                {
+                    "id": 3031348,
+                    "name": "Upon entering \"Surging Grit,\" immediately recover #1[i] Skill Point(s). During \"Surging Grit,\" enemy targets take 30% more DoT."
+                },
+                {
+                    "id": 3031349,
+                    "name": "During \"Surging Grit\", increases all allies SPD by 20%, and after using a Skill, apply #2[i] stack(s) of \"Resound\" to all allies."
+                }
+            ],
+            "BuffList2": [
+                {
+                    "id": 3031207,
+                    "name": "After allies use Ultimate to attack enemy targets, every enemy target hit additionally accumulates #1[i] Grit Value for allies."
+                },
+                {
+                    "id": 3031208,
+                    "name": "After an enemy target is defeated by any unit, all allies gain 1 stack of \"Resound.\""
+                },
+                {
+                    "id": 3031209,
+                    "name": "When entering Surging Grit, consume all \"Resound.\" Each stack of \"Resound\" deals 1 instance of a set amount of DMG to a random enemy target. During Surging Grit, increases enemy targets' DMG taken by #3[i]%, and after they are defeated by any unit, all allies additionally gain 1 stack of \"Resound.\" When \"Resound\" stacks up to #1[i] or higher, consumes all \"Resound\" stacks and deals 1 instance of a set amount of DMG to a random enemy target per stack."
+                }
+            ]
+        }
+    ]
+}
