@@ -1,0 +1,35 @@
+
+{
+    "CNBETAWin3.7.51": {
+        "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12579793_48327ff319b5_1b794dd1071e3a",
+        "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/BetaLive/output_12611332_5f583f2f54ae_c04979f13c950d",
+        "ifix_url": "https://autopatchcn.bhsr.com/ifix/BetaLive/output_0_40d2ce0253_c61ba99f70b885",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchcn.bhsr.com/lua/BetaLive/output_12579929_9566349ee5fb_c6341faaf9b027",
+        "lua_version": ""
+    },
+    "CNBETAWin3.7.52": {
+        "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12667947_227b15b1bb81_6191be20fa4374",
+        "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/BetaLive/output_12667947_f39357aaad70_d21eabf55b71eb",
+        "ifix_url": "https://autopatchcn.bhsr.com/ifix/BetaLive/output_0_40d2ce0253_c61ba99f70b885",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchcn.bhsr.com/lua/BetaLive/output_12668602_bb2724b6e4aa_96844284b2e8b2",
+        "lua_version": ""
+    },
+    "CNBETAWin3.7.53": {
+        "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12780782_5b2a53fa06e0_a3638534913d5f",
+        "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/BetaLive/output_12780782_84f9f677c892_ce4a000dc6b55a",
+        "ifix_url": "https://autopatchcn.bhsr.com/ifix/BetaLive/output_0_40d2ce0253_c61ba99f70b885",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchcn.bhsr.com/lua/BetaLive/output_12767200_40d19987b596_dbe466d6b2a94a",
+        "lua_version": ""
+    },
+    "CNBETAWin3.7.55": {
+        "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12944007_16547dd6969c_66649c5fd89eb3",
+        "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/BetaLive/output_12964715_0bc224343e05_0711b899b3a6dc",
+        "ifix_url": "https://autopatchcn.bhsr.com/ifix/BetaLive/output_0_40d2ce0253_c61ba99f70b885",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchcn.bhsr.com/lua/BetaLive/output_12944321_7bf449a4c967_0c3afa2751a707",
+        "lua_version": ""
+    }
+}

@@ -1,0 +1,34 @@
+{
+  "player": {
+    "uid": 1,
+    "level": 70,
+    "world_level": 6,
+    "stamina": 180,
+    "mcoin": 0,
+    "hcoin": 0,
+    "scoin": 0,
+    "lineup": [1407, 1409, 1413, 1415],
+    "funmode_lineup": [1407, 1409, 1413, 1415],
+    "opened_chests": [],
+    "position": {
+      "plane_id": 10001,
+      "floor_id": 1000101,
+      "entry_id": 100010101
+    },
+    "inventory": [
+      { "id": 251001, "count": 100 },
+      { "id": 251002, "count": 100 },
+      { "id": 251003, "count": 100 },
+      { "id": 101, "count": 100 },
+      { "id": 238, "count": 100 },
+      { "id": 239, "count": 100 },
+      { "id": 227003, "count": 1 },
+      { "id": 227002, "count": 1 },
+      { "id": 227001, "count": 1 }
+    ],
+    "skins": [1100101, 1131001, 1141501],
+    "player_outfits": [227003, 227002, 227001]
+  },
+  "mc_gender": "female",
+  "mc_path": "memory"
+}
