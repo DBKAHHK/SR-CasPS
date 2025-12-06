@@ -456,29 +456,6 @@ pub fn setHp(session: *Session, args: []const u8, allocator: std.mem.Allocator) 
     try commandhandler.sendMessage(session, "Updated all avatars HP and synced", allocator);
 }
 
-pub fn setSp(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
-    var it = std.mem.tokenizeScalar(u8, args, ' ');
-    const first = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /sp <value>", allocator);
-        return;
-    };
-
-    const value = std.fmt.parseInt(u32, first, 10) catch {
-        try commandhandler.sendMessage(session, "Usage: /sp <value>", allocator);
-        return;
-    };
-
-    const cfg = &ConfigManager.global_game_config_cache.game_config;
-
-    for (cfg.avatar_config.items) |*avatar| {
-        avatar.sp = value;
-    }
-
-    try Sync.onSyncAvatar(session, "", allocator);
-
-    try commandhandler.sendMessage(session, "Updated all avatars SP and synced", allocator);
-}
-
 pub fn sceneCommand(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
     var it = std.mem.tokenizeAny(u8, args, " \t");
     const sub = it.next() orelse {
@@ -523,6 +500,12 @@ pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator
     }
 }
 
+pub fn kick(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
+    // Inform client then close connection to force logout.
+    try commandhandler.sendMessage(session, "You have been kicked by server", allocator);
+    session.stream.close();
+}
+
 pub fn saveLineup(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
     if (session.player_state) |*state| {
         try PlayerStateMod.saveLineupToConfig(state);
@@ -541,9 +524,9 @@ pub fn syncFreeseData(session: *Session, args: []const u8, allocator: std.mem.Al
     };
 
     // 2) 重新生成并同步阵容 / 属性（用新的 game_config）
-    //try Sync.onGenerateAndSync(session, allocator);
+    try Sync.onGenerateAndSync(session, "", allocator);
 
-    try commandhandler.sendMessage(session, "已重新加载 freesr-data.json，使用 /sync 生效", allocator);
+    try commandhandler.sendMessage(session, "已重新加载 freesr-data.json，并同步至客户端", allocator);
 }
 
 fn genderToString(g: MiscDefaults.Gender) []const u8 {

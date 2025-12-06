@@ -1,5 +1,6 @@
 .{
-.name = .CastoricePS,
+    .fingerprint = 0x7b5c48f07686e854,
+    .name = .CastoricePS,
     .version = "0.0.1",
     .minimum_zig_version = "0.14.0",
     .dependencies = .{

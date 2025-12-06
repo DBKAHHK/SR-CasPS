@@ -44,16 +44,18 @@ pub fn build(b: *std.Build) void {
         .target = target,
         .optimize = optimize,
     });
-    // Windows icon embedding (requires zig.exe to have llvm-rc available).
-    const rc_files = b.addWriteFiles();
-    const rc_path = rc_files.add("castoriceps.rc",
-        \\ 1 ICON "../icon_output.ico"
-    );
-    const rc_cmd = b.addSystemCommand(&.{ "zig", "rc", "/nologo", "/fo" });
-    const res_output = rc_cmd.addOutputFileArg("castoriceps.res");
-    rc_cmd.addFileArg(rc_path);
-    exe.addWin32ResourceFile(.{ .file = res_output });
-    exe.step.dependOn(&rc_cmd.step);
+    // Windows icon embedding (skip for non-Windows targets).
+    if (target.result.os.tag == .windows) {
+        const rc_files = b.addWriteFiles();
+        const rc_path = rc_files.add("castoriceps.rc",
+            \\ 1 ICON "../icon_output.ico"
+        );
+        const rc_cmd = b.addSystemCommand(&.{ "zig", "rc", "/nologo", "/fo" });
+        const res_output = rc_cmd.addOutputFileArg("castoriceps.res");
+        rc_cmd.addFileArg(rc_path);
+        exe.addWin32ResourceFile(.{ .file = res_output });
+        exe.step.dependOn(&rc_cmd.step);
+    }
     exe.root_module.addImport("dispatch_main", dispatch_mod);
     exe.root_module.addImport("gameserver_main", gameserver_mod);
 

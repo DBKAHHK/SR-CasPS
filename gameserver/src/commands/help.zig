@@ -15,12 +15,11 @@ pub fn handle(session: *Session, _: []const u8, allocator: Allocator) !void {
     try commandhandler.sendMessage(session, "Please strictly distinguish between /sync and /syncdata", allocator);
     try commandhandler.sendMessage(session, "/sync to sync your config.(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/syncdata to sync your free-sr data(Beta, only test)", allocator);
-    try commandhandler.sendMessage(session, "/hp to set your Health Points(Beta, only test)", allocator);
-    try commandhandler.sendMessage(session, "/sp to set your Skill Point(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/give to give your a Material, such as credits(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/level to set your Trailblaze Level(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/tp to teleport(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/scene pos to show current position; /scene reload to reload scene config(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/info to show player basic info (uid/level/currency)", allocator);
     try commandhandler.sendMessage(session, "/gender <male|female> to pick Trailblazer gender; /path <warrior|knight|shaman|memory> to pick path", allocator);
+    try commandhandler.sendMessage(session, "/kick to disconnect your session", allocator);
 }

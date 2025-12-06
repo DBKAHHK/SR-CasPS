@@ -21,23 +21,53 @@ pub const LineupManager = struct {
     pub fn createLineup(self: *LineupManager) !protocol.LineupInfo {
         var ids = ArrayList(u32).init(self.allocator);
         defer ids.deinit();
-        var picked_mc = false;
-        var picked_m7th = false;
-        for (config.avatar_config.items) |avatarConf| {
-            if (ids.items.len >= 4) break;
-            const id = switch (avatarConf.id) {
-                8001...8008 => if (!picked_mc) blk: {
-                    picked_mc = true;
-                    break :blk AvatarManager.getMcId();
-                } else continue,
-                1224, 1001 => if (!picked_m7th) blk: {
-                    picked_m7th = true;
-                    break :blk AvatarManager.m7th;
-                } else continue,
-                else => avatarConf.id,
-            };
-            try ids.append(id);
+
+        // 1) Fun mode uses its own lineup.
+        if (Logic.FunMode().FunMode()) {
+            try ids.appendSlice(BattleManager.funmodeAvatarID.items);
+        } else {
+            // 2) Use current selected lineup if it has any non-zero entries.
+            var has_selected = false;
+            for (BattleManager.selectedAvatarID) |id| {
+                if (id != 0) {
+                    has_selected = true;
+                    break;
+                }
+            }
+            if (has_selected) {
+                for (BattleManager.selectedAvatarID) |id| {
+                    if (id != 0) try ids.append(id);
+                }
+            } else {
+                // 3) Fallback to misc.json defaults if present.
+                const misc_lineup = ConfigManager.global_misc_defaults.player.lineup;
+                if (misc_lineup.len > 0) {
+                    try ids.appendSlice(misc_lineup);
+                }
+            }
         }
+
+        // 4) If still empty, fall back to first 4 avatars from config.
+        if (ids.items.len == 0) {
+            var picked_mc = false;
+            var picked_m7th = false;
+            for (config.avatar_config.items) |avatarConf| {
+                if (ids.items.len >= 4) break;
+                const id = switch (avatarConf.id) {
+                    8001...8008 => if (!picked_mc) blk: {
+                        picked_mc = true;
+                        break :blk AvatarManager.getMcId();
+                    } else continue,
+                    1224, 1001 => if (!picked_m7th) blk: {
+                        picked_m7th = true;
+                        break :blk AvatarManager.m7th;
+                    } else continue,
+                    else => avatarConf.id,
+                };
+                try ids.append(id);
+            }
+        }
+
         return try buildLineup(self.allocator, ids.items, null);
     }
 };

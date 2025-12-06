@@ -49,6 +49,9 @@ pub fn loadFromFreesr(allocator: Allocator) !GameConfig {
             const avatar_id: u32 = @intCast(av.object.get("avatar_id").?.integer);
             const level: u32 = @intCast(av.object.get("level").?.integer);
             const promotion: u32 = @intCast(av.object.get("promotion").?.integer);
+            const hp_val: u32 = @intCast((av.object.get("max_hp") orelse json.Value{ .integer = 10000 }).integer);
+            const sp_max_val: u32 = @intCast((av.object.get("sp_max") orelse json.Value{ .integer = 100 }).integer);
+            const sp_cur_val: u32 = @intCast((av.object.get("sp_value") orelse json.Value{ .integer = sp_max_val }).integer);
 
             var rank: u32 = 0;
             if (av.object.get("data")) |dv| {
@@ -59,14 +62,14 @@ pub fn loadFromFreesr(allocator: Allocator) !GameConfig {
 
             try game_cfg.avatar_config.append(.{
                 .id = avatar_id,
-                .hp = 100,
-                .sp = 50,
+                .hp = hp_val,
+                .sp = sp_cur_val,
                 .level = level,
                 .promotion = promotion,
                 .rank = rank,
                 .lightcone = .{ .id = 0, .rank = 1, .level = 1, .promotion = 0 },
                 .relics = std.ArrayList(Relic).init(allocator),
-                .use_technique = false,
+                .use_technique = av.object.get("techniques") != null,
             });
 
             try avatar_map.put(avatar_id, idx);
@@ -184,9 +187,12 @@ pub fn loadFromFreesr(allocator: Allocator) !GameConfig {
         if (bc.object.get("cycle_count")) |cc|
             game_cfg.battle_config.cycle_count = @intCast(cc.integer);
 
-        if (bc.object.get("blessings")) |bless|
-            for (bless.array.items) |b|
-                try game_cfg.battle_config.blessings.append(@intCast(b.object.get("id").?.integer));
+        if (bc.object.get("blessings")) |bless| {
+            for (bless.array.items) |b| {
+                const id_val = b.object.get("id") orelse continue;
+                try game_cfg.battle_config.blessings.append(@intCast(id_val.integer));
+            }
+        }
 
         // monsters: [[ { monster_id, amount, level } ]]
         if (bc.object.get("monsters")) |waves| {
@@ -194,9 +200,12 @@ pub fn loadFromFreesr(allocator: Allocator) !GameConfig {
                 var w = std.ArrayList(u32).init(allocator);
 
                 for (wave.array.items) |m| {
-                    const mid: u32 = @intCast(m.object.get("monster_id").?.integer);
-                    const amt: u32 = @intCast(m.object.get("amount").?.integer);
-                    const lvl: u32 = @intCast(m.object.get("level").?.integer);
+                    const mid_val = m.object.get("monster_id") orelse m.object.get("id") orelse continue;
+                    const mid: u32 = @intCast(mid_val.integer);
+                    var amt: u32 = 1;
+                    if (m.object.get("amount")) |v| amt = @intCast(v.integer);
+                    var lvl: u32 = 1;
+                    if (m.object.get("level")) |v| lvl = @intCast(v.integer);
 
                     if (lvl > game_cfg.battle_config.monster_level)
                         game_cfg.battle_config.monster_level = lvl;
