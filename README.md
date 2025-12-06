@@ -51,5 +51,6 @@ saves/                   # 可选，玩家存档
 
 ## 贡献与反馈
 欢迎提交 PR 或 Issue，描述清晰的复现步骤与期望行为有助于快速定位问题。***
-感谢Reversed Rooms，此项目是基于仓库：https://git.xeondev.com/HonkaiSlopRail/dahlia-sr-0.14.1才能够完成的。
-本项目遵守GNU V3开源协议。
+感谢Reversed Rooms，此项目基于仓库：
+https://git.xeondev.com/HonkaiSlopRail/dahlia-sr-0.14.1
+
