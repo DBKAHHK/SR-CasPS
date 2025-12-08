@@ -44,8 +44,13 @@ pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
 
     var planeID: u32 = 0;
     var floorID: u32 = 0;
+    if (session.player_state) |*state| {
+        planeID = state.position.plane_id;
+        floorID = state.position.floor_id;
+    }
     if (plane_id) |pid| planeID = pid;
     if (floor_id) |fid| floorID = fid;
+
     var scene_manager = SceneManager.SceneManager.init(allocator);
     const scene_info = try scene_manager.createScene(planeID, floorID, entry_id, 0);
     var lineup_mgr = LineupManager.LineupManager.init(allocator);
@@ -55,4 +60,9 @@ pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
         .lineup = lineup,
         .scene = scene_info,
     });
+
+    // Update player position in save if available.
+    if (session.player_state) |*state| {
+        state.position = .{ .plane_id = planeID, .floor_id = floorID, .entry_id = entry_id };
+    }
 }

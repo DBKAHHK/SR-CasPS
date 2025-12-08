@@ -14,9 +14,9 @@ const CmdID = protocol.CmdID;
 const skill_config = &ConfigManager.global_game_config_cache.avatar_skill_config;
 const config = &ConfigManager.global_game_config_cache.game_config;
 
-pub var selectedAvatarID = [_]u32{ 1304, 1313, 1406, 1004 };
-
+// Will be filled from saved lineup or misc.json defaults; start empty to avoid config fallback.
 var gpa = std.heap.GeneralPurposeAllocator(.{}){};
+pub var selectedAvatarID = std.ArrayList(u32).init(gpa.allocator());
 pub var funmodeAvatarID = std.ArrayList(u32).init(gpa.allocator());
 
 fn getAvatarElement(avatar_id: u32) AvatarConfig.Element {
@@ -30,7 +30,10 @@ fn getAvatarElement(avatar_id: u32) AvatarConfig.Element {
 }
 
 fn getAttackerBuffId() u32 {
-    const avatar_id = if (!Logic.FunMode().FunMode()) selectedAvatarID[Lineup.leader_slot] else funmodeAvatarID.items[Lineup.leader_slot];
+    const list = if (!Logic.FunMode().FunMode()) selectedAvatarID.items else funmodeAvatarID.items;
+    if (list.len == 0) return 0;
+    const slot = if (Lineup.leader_slot < list.len) Lineup.leader_slot else 0;
+    const avatar_id = list[slot];
     const element = getAvatarElement(avatar_id);
     return switch (element) {
         .Physical => 1000111,
@@ -428,7 +431,7 @@ pub const BattleManager = struct {
         try commonBattleSetup(
             self.allocator,
             &battle,
-            if (!Logic.FunMode().FunMode()) &selectedAvatarID else funmodeAvatarID.items,
+            if (!Logic.FunMode().FunMode()) selectedAvatarID.items else funmodeAvatarID.items,
             config.avatar_config.items,
             config.battle_config.monster_wave,
             config.battle_config.monster_level,
@@ -474,7 +477,7 @@ pub const ChallegeStageManager = struct {
                 try commonBattleSetup(
                     self.allocator,
                     &battle,
-                    if (!Logic.FunMode().FunMode()) &selectedAvatarID else funmodeAvatarID.items,
+                    if (!Logic.FunMode().FunMode()) selectedAvatarID.items else funmodeAvatarID.items,
                     config.avatar_config.items,
                     stageConf.monster_list,
                     stageConf.level,

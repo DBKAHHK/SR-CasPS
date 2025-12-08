@@ -93,28 +93,58 @@ pub fn onUseItem(session: *Session, packet: *const Packet, allocator: Allocator)
     try session.send(CmdID.CmdUseItemScRsp, rsp);
 }
 
+fn mergePileItems(allocator: Allocator, items: []const protocol.PileItem) !std.ArrayList(protocol.PileItem) {
+    var merged = std.ArrayList(protocol.PileItem).init(allocator);
+    if (items.len == 0) return merged;
+
+    var map = std.AutoHashMap(u32, u32).init(allocator);
+    defer map.deinit();
+
+    for (items) |it| {
+        const existing = map.get(it.item_id) orelse 0;
+        map.put(it.item_id, existing + it.item_num) catch {};
+    }
+
+    var it = map.iterator();
+    while (it.next()) |entry| {
+        try merged.append(.{
+            .item_id = entry.key_ptr.*,
+            .item_num = entry.value_ptr.*,
+        });
+    }
+    return merged;
+}
+
+/// data-only grant + save（聚合同 id 的奖励，近似 LunarCore 的“先合并再发放”思路）
 pub fn grantItems(session: *Session, allocator: Allocator, items: []const protocol.PileItem) !void {
     if (session.player_state) |*state| {
-        for (items) |it| {
+        var merged = try mergePileItems(allocator, items);
+        defer merged.deinit();
+
+        for (merged.items) |it| {
             const tid: u32 = it.item_id;
             const count: u32 = it.item_num;
 
-            // 你自己确认：1 / 2 和 mcoin / scoin 对应关系
-            switch (tid) {
-                2 => { // Credit
-                    state.scoin += count;
-                },
-                1 => { // Stellar Jade
-                    state.mcoin += count;
-                },
-                else => {
-                    try state.inventory.addMaterial(tid, count);
-                },
+            // 用 item_db 的类型信息简单分流；未知则走回退
+            if (ItemDb.findById(tid)) |cfg| {
+                switch (cfg.item_type) {
+                    .Currency => switch (tid) {
+                        2 => state.scoin += count, // Credit
+                        1 => state.mcoin += count, // Stellar Jade
+                        else => try state.inventory.addMaterial(tid, count),
+                    },
+                    else => try state.inventory.addMaterial(tid, count),
+                }
+            } else {
+                switch (tid) {
+                    2 => state.scoin += count,
+                    1 => state.mcoin += count,
+                    else => try state.inventory.addMaterial(tid, count),
+                }
             }
         }
         try PlayerStateMod.save(state);
         const notify = protocol.PlayerSyncScNotify.init(allocator);
-        // 填必要字段，比如货币、材料列表
         try session.send(CmdID.CmdPlayerSyncScNotify, notify);
     }
 
@@ -122,30 +152,50 @@ pub fn grantItems(session: *Session, allocator: Allocator, items: []const protoc
     try syncBag(session, allocator);
 }
 
-pub fn grantFixedChestReward(session: *Session, allocator: Allocator) !void {
-    if (session.player_state != null) {
-        // 按要求：读取 item_db 并固定发放 星琼 50、信用点 50000
-        const star_cfg = ItemDb.findById(1);
-        const credit_cfg = ItemDb.findById(2);
-
-        // 准备奖励列表（允许任一缺失时仍尽量发放存在的）
-        var rewards = std.ArrayList(protocol.PileItem).init(allocator);
-        defer rewards.deinit();
-
-        if (star_cfg) |s| {
-            try rewards.append(protocol.PileItem{ .item_id = s.id, .item_num = 50 });
+fn resolvePropIdByEntityId(entity_id: u32) ?u32 {
+    const res_cfg = &ConfigManager.global_game_config_cache.res_config;
+    for (res_cfg.scene_config.items) |scene| {
+        for (scene.props.items) |prop| {
+            if (prop.instId == entity_id) return prop.propId;
         }
-        if (credit_cfg) |c| {
-            try rewards.append(protocol.PileItem{ .item_id = c.id, .item_num = 50000 });
-        }
+    }
+    return null;
+}
 
-        if (rewards.items.len > 0) {
-            try grantItems(session, allocator, rewards.items);
-            // 也发个奖励吐司给客户端，方便玩家在 UI 看到
-            try sendRewardToast(session, allocator, rewards.items);
-        }
-    } else {
-        // 没有玩家存档则什么也不做
+pub fn grantFixedChestReward(session: *Session, allocator: Allocator, prop_entity_id: u32) !void {
+    _ = session.player_state orelse return;
+
+    // Lightweight drop logic borrowed from LunarCore: small HC + exp + a credit roll, scaled a bit per prop_id.
+    const prop_id = resolvePropIdByEntityId(prop_entity_id);
+    const tier: u32 = if (prop_id) |pid| blk: {
+        if (pid >= 6000) break :blk 3;
+        if (pid >= 3000) break :blk 2;
+        break :blk 1;
+    } else 1;
+
+    var prng = std.Random.DefaultPrng.init(@intCast(std.time.nanoTimestamp()));
+    const rand = prng.random();
+
+    const jade_amt: u32 = 5 * tier;
+    const exp_amt: u32 = 5 * tier;
+    const credit_amt: u32 = (20 * tier) + rand.intRangeAtMost(u32, 0, 80 * tier);
+
+    var rewards = std.ArrayList(protocol.PileItem).init(allocator);
+    defer rewards.deinit();
+
+    if (ItemDb.findById(1)) |s| {
+        try rewards.append(.{ .item_id = s.id, .item_num = jade_amt });
+    }
+    if (ItemDb.findById(21)) |exp_item| {
+        try rewards.append(.{ .item_id = exp_item.id, .item_num = exp_amt });
+    }
+    if (ItemDb.findById(2)) |c| {
+        try rewards.append(.{ .item_id = c.id, .item_num = credit_amt });
+    }
+
+    if (rewards.items.len > 0) {
+        try grantItems(session, allocator, rewards.items);
+        try sendRewardToast(session, allocator, rewards.items);
     }
 }
 
@@ -165,14 +215,11 @@ pub fn sendRewardToast(
     allocator: Allocator,
     items: []const protocol.PileItem,
 ) !void {
-    // 用 SellItemScRsp 来承载 return_item_list
     var rsp = protocol.SellItemScRsp.init(allocator);
     rsp.retcode = 0;
 
-    // ItemList 里面装的是 Item（item_id + num），不是 PileItem
     var item_array = std.ArrayList(protocol.Item).init(allocator);
 
-    // 把每个 PileItem 转成 Item 再塞进去
     for (items) |p| {
         try item_array.append(.{
             .item_id = p.item_id,

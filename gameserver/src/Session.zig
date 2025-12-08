@@ -38,6 +38,12 @@ pub fn init(
 
 pub fn run(self: *Self) !void {
     defer self.stream.close();
+    defer {
+        if (self.player_state) |*state| {
+            state.deinit();
+            self.player_state = null;
+        }
+    }
 
     var reader = self.stream.reader();
     while (true) {

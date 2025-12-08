@@ -336,7 +336,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
                 try ItemService.sendOpenChestNotify(session, allocator, req.prop_entity_id);
 
                 // 发放奖励并保存（grantItems 内会保存）
-                try ItemService.grantFixedChestReward(session, allocator);
+                try ItemService.grantFixedChestReward(session, allocator, req.prop_entity_id);
 
                 // 记录到玩家已开宝箱并持久化
                 try state.opened_chests.append(req.prop_entity_id);

@@ -66,173 +66,75 @@ const PlayerStateFile = struct {
     position: ?Position = null,
 };
 
-/// 保存到 saves/<uid>.json
+/// 保存到 misc.json（统一存档）
 pub fn save(state: *PlayerState) !void {
     const cwd = std.fs.cwd();
-    cwd.makeDir("saves") catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
+
+    const gender_str = switch (ConfigManager.global_misc_defaults.mc_gender) {
+        .male => "male",
+        .female => "female",
+    };
+    const path_str = switch (ConfigManager.global_misc_defaults.mc_path) {
+        .warrior => "warrior",
+        .knight => "knight",
+        .shaman => "shaman",
+        .memory => "memory",
     };
 
-    var path_buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "saves/{d}.json", .{state.uid});
-
-    var file = try cwd.createFile(path, .{ .truncate = true });
-    defer file.close();
-
-    const writer = file.writer();
-
-    const file_state = PlayerStateFile{
-        .uid = state.uid,
-        .level = state.level,
-        .world_level = state.world_level,
-        .stamina = state.stamina,
-        .mcoin = state.mcoin,
-        .hcoin = state.hcoin,
-        .scoin = state.scoin,
-        .materials = state.inventory.materials.items,
-        .selected_lineup = BattleManager.selectedAvatarID[0..],
-        .funmode_lineup = BattleManager.funmodeAvatarID.items,
-        .opened_chests = state.opened_chests.items,
-        .position = state.position,
-    };
-
-    try std.json.stringify(
-        file_state,
-        .{ .whitespace = .indent_2 },
-        writer,
-    );
-}
-
-/// 读取当前编队并保存到 `saves/<uid>_lineup.json`
-pub fn saveLineupToConfig(state: *PlayerState) !void {
-    const cwd = std.fs.cwd();
-    cwd.makeDir("saves") catch |err| switch (err) {
-        error.PathAlreadyExists => {},
-        else => return err,
-    };
-
-    var path_buf: [80]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "saves/{d}_lineup.json", .{state.uid});
-
-    var file = try cwd.createFile(path, .{ .truncate = true });
-    defer file.close();
-
-    const writer = file.writer();
-
-    try writer.print("{{\"uid\": {d}, \"lineup\": [", .{state.uid});
-
-    if (!Logic.FunMode().FunMode()) {
-        var first: bool = true;
-        for (BattleManager.selectedAvatarID) |id| {
-            if (!first) try writer.print(", ", .{});
-            first = false;
-            try writer.print("{d}", .{id});
-        }
-    } else {
-        var first: bool = true;
-        for (BattleManager.funmodeAvatarID.items) |id| {
-            if (!first) try writer.print(", ", .{});
-            first = false;
-            try writer.print("{d}", .{id});
-        }
-    }
-
-    try writer.print("]}}\n", .{});
-}
-
-/// 如果不存在则创建默认存档（来自 misc.json）
-pub fn loadOrCreate(allocator: Allocator, uid: u32) !PlayerState {
-    const cwd = std.fs.cwd();
-
-    var path_buf: [64]u8 = undefined;
-    const path = try std.fmt.bufPrint(&path_buf, "saves/{d}.json", .{uid});
-
-    const file = cwd.openFile(path, .{}) catch |err| switch (err) {
-        error.FileNotFound => {
-            const defaults = ConfigManager.global_misc_defaults.player;
-            var s = PlayerState.init(allocator, defaults.uid);
-            s.level = defaults.level;
-            s.world_level = defaults.world_level;
-            s.stamina = defaults.stamina;
-            s.mcoin = defaults.mcoin;
-            s.hcoin = defaults.hcoin;
-            s.scoin = defaults.scoin;
-            s.position = .{ .plane_id = defaults.position.plane_id, .floor_id = defaults.position.floor_id, .entry_id = defaults.position.entry_id };
-
-            for (defaults.inventory) |mat| {
-                try s.inventory.addMaterial(mat.id, mat.count);
-            }
-
-            BattleManager.funmodeAvatarID.clearRetainingCapacity();
-            try BattleManager.funmodeAvatarID.appendSlice(defaults.funmode_lineup);
-            var i: usize = 0;
-            while (i < BattleManager.selectedAvatarID.len) : (i += 1) {
-                BattleManager.selectedAvatarID[i] = if (i < defaults.lineup.len) defaults.lineup[i] else 0;
-            }
-
-            try s.opened_chests.appendSlice(defaults.opened_chests);
-            try save(&s);
-            return s;
+    const root = .{
+        .player = .{
+            .uid = state.uid,
+            .level = state.level,
+            .world_level = state.world_level,
+            .stamina = state.stamina,
+            .mcoin = state.mcoin,
+            .hcoin = state.hcoin,
+            .scoin = state.scoin,
+            .lineup = BattleManager.selectedAvatarID.items,
+            .funmode_lineup = BattleManager.funmodeAvatarID.items,
+            .opened_chests = state.opened_chests.items,
+            .inventory = state.inventory.materials.items,
+            .skins = ConfigManager.global_misc_defaults.player.skins,
+            .player_outfits = ConfigManager.global_misc_defaults.player.player_outfits,
+            .position = state.position,
         },
-        else => return err,
+        .mc_gender = gender_str,
+        .mc_path = path_str,
     };
+
+    var file = try cwd.createFile("misc.json", .{ .truncate = true });
     defer file.close();
+    try std.json.stringify(root, .{ .whitespace = .indent_2 }, file.writer());
+}
 
-    var buf = std.ArrayList(u8).init(allocator);
-    defer buf.deinit();
-    try file.reader().readAllArrayList(&buf, 1024 * 4);
+/// 读取当前编队并保存：同样写回 misc.json
+pub fn saveLineupToConfig(state: *PlayerState) !void {
+    try save(state);
+}
 
-    var parsed = try std.json.parseFromSlice(
-        PlayerStateFile,
-        allocator,
-        buf.items,
-        .{},
-    );
-    defer parsed.deinit();
+/// 加载存档（来自 misc.json；单账号）
+pub fn loadOrCreate(allocator: Allocator, uid: u32) !PlayerState {
+    _ = uid;
+    const defaults = ConfigManager.global_misc_defaults.player;
+    var s = PlayerState.init(allocator, defaults.uid);
+    s.level = defaults.level;
+    s.world_level = defaults.world_level;
+    s.stamina = defaults.stamina;
+    s.mcoin = defaults.mcoin;
+    s.hcoin = defaults.hcoin;
+    s.scoin = defaults.scoin;
+    s.position = .{ .plane_id = defaults.position.plane_id, .floor_id = defaults.position.floor_id, .entry_id = defaults.position.entry_id };
 
-    var s = PlayerState.init(allocator, parsed.value.uid);
-    s.level = parsed.value.level;
-    s.world_level = parsed.value.world_level;
-    s.stamina = parsed.value.stamina;
-    s.mcoin = parsed.value.mcoin;
-    s.hcoin = parsed.value.hcoin;
-    s.scoin = parsed.value.scoin;
-
-    // 恢复编队（如果存档里有）
-    if (parsed.value.selected_lineup) |arr| {
-        var i: usize = 0;
-        while (i < arr.len and i < BattleManager.selectedAvatarID.len) : (i += 1) {
-            BattleManager.selectedAvatarID[i] = arr[i];
-        }
-        while (i < BattleManager.selectedAvatarID.len) : (i += 1) {
-            BattleManager.selectedAvatarID[i] = 0;
-        }
-    }
-    if (parsed.value.funmode_lineup) |arr| {
-        BattleManager.funmodeAvatarID.clearRetainingCapacity();
-        for (arr) |id| {
-            try BattleManager.funmodeAvatarID.append(id);
-        }
+    for (defaults.inventory) |mat| {
+        try s.inventory.addMaterial(mat.id, mat.count);
     }
 
-    // 还原背包内容
-    for (parsed.value.materials) |mat| {
-        try s.inventory.addMaterial(mat.tid, mat.count);
-    }
+    BattleManager.funmodeAvatarID.clearRetainingCapacity();
+    try BattleManager.funmodeAvatarID.appendSlice(defaults.funmode_lineup);
+    BattleManager.selectedAvatarID.clearRetainingCapacity();
+    try BattleManager.selectedAvatarID.appendSlice(defaults.lineup);
 
-    // 已经打开的修理体id (如果存在)
-    if (parsed.value.opened_chests) |arr| {
-        try s.opened_chests.appendSlice(arr);
-    }
-
-    // 位置（不存在时使用默认值）
-    if (parsed.value.position) |pos| {
-        s.position = pos;
-    } else {
-        const pos = ConfigManager.global_misc_defaults.player.position;
-        s.position = .{ .plane_id = pos.plane_id, .floor_id = pos.floor_id, .entry_id = pos.entry_id };
-    }
+    try s.opened_chests.appendSlice(defaults.opened_chests);
 
     return s;
 }

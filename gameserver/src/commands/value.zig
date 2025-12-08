@@ -17,12 +17,14 @@ const CmdID = protocol.CmdID;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 
+var next_mail_id: u32 = 1000;
+
 fn isMcId(id: u32) bool {
     return id >= 8001 and id <= 8008;
 }
 
 fn applyMcToLineups(new_id: u32) void {
-    for (&BattleManager.selectedAvatarID) |*id| {
+    for (BattleManager.selectedAvatarID.items) |*id| {
         if (isMcId(id.*)) id.* = new_id;
     }
     for (BattleManager.funmodeAvatarID.items) |*id| {
@@ -488,6 +490,11 @@ pub fn sceneCommand(session: *Session, args: []const u8, allocator: std.mem.Allo
     try commandhandler.sendMessage(session, "Usage: /scene <pos|reload>", allocator);
 }
 
+pub fn syncSceneReload(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
+    // Alias of /scene reload for convenience
+    try sceneCommand(session, "reload", allocator);
+}
+
 pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
     if (session.player_state) |state| {
         const msg = try std.fmt.allocPrint(allocator, "UID={d}, Level={d}, WorldLevel={d}, Stamina={d}, MCoin={d}, HCoin={d}, SCoin={d}", .{
@@ -500,9 +507,18 @@ pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator
     }
 }
 
-pub fn kick(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
+pub fn stop(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
     // Inform client then close connection to force logout.
-    try commandhandler.sendMessage(session, "You have been kicked by server", allocator);
+    try commandhandler.sendMessage(session, "Server will stop your session", allocator);
+    session.stream.close();
+}
+
+pub fn kick(session: *Session, _: []const u8, allocator: Allocator) !void {
+    // Gracefully tell client it is kicked, then close only that connection.
+    var notify = protocol.PlayerKickOutScNotify.init(allocator);
+    notify.kick_type = .KICK_BY_GM;
+    try session.send(CmdID.CmdPlayerKickOutScNotify, notify);
+    try commandhandler.sendMessage(session, "You have been kicked by admin.", allocator);
     session.stream.close();
 }
 
@@ -525,6 +541,13 @@ pub fn syncFreeseData(session: *Session, args: []const u8, allocator: std.mem.Al
 
     // 2) 重新生成并同步阵容 / 属性（用新的 game_config）
     try Sync.onGenerateAndSync(session, "", allocator);
+
+    // 3) 同步最新编队到客户端（使用 misc/存档数据，避免面板延迟刷新）
+    var lineup_mgr = LineupManager.LineupManager.init(allocator);
+    const lineup = try lineup_mgr.createLineup();
+    var sync_lineup = protocol.SyncLineupNotify.init(allocator);
+    sync_lineup.lineup = lineup;
+    try session.send(CmdID.CmdSyncLineupNotify, sync_lineup);
 
     try commandhandler.sendMessage(session, "已重新加载 freesr-data.json，并同步至客户端", allocator);
 }
@@ -587,4 +610,42 @@ pub fn setPath(session: *Session, args: []const u8, allocator: std.mem.Allocator
     const msg = try std.fmt.allocPrint(allocator, "Set Trailblazer path to {s} (gender: {s}, id={d})", .{ pathToString(path), genderToString(gender), mc_id });
     defer allocator.free(msg);
     try commandhandler.sendMessage(session, msg, allocator);
+}
+
+pub fn sendMail(session: *Session, _: []const u8, allocator: Allocator) !void {
+    var attachments = std.ArrayList(protocol.Item).init(allocator);
+    defer attachments.deinit();
+
+    // Simple gift: some credits + jade. Edit here if you need different loot.
+    try attachments.appendSlice(&[_]protocol.Item{
+        .{ .item_id = 1, .num = 800 },   // Stellar Jade
+        .{ .item_id = 2, .num = 50000 }, // Credits
+    });
+
+    var mail = protocol.ClientMail.init(allocator);
+    mail.id = next_mail_id;
+    mail.sender = .{ .Const = "CastoricePS" };
+    mail.title = .{ .Const = "Console mail" };
+    mail.content = .{ .Const = "Sent from /mail command." };
+    mail.is_read = false;
+    mail.time = std.time.timestamp();
+    mail.expire_time = mail.time + 30 * 24 * 3600;
+    mail.mail_type = protocol.MailType.MAIL_TYPE_STAR;
+    mail.attachment = .{ .item_list = attachments };
+
+    var rsp = protocol.GetMailScRsp.init(allocator);
+    rsp.total_num = 1;
+    rsp.is_end = true;
+    rsp.start = 0;
+    rsp.retcode = 0;
+    try rsp.mail_list.append(mail);
+
+    var notify = protocol.NewMailScNotify.init(allocator);
+    try notify.mail_id_list.append(mail.id);
+
+    try session.send(CmdID.CmdNewMailScNotify, notify);
+    try session.send(CmdID.CmdGetMailScRsp, rsp);
+
+    next_mail_id += 1;
+    try commandhandler.sendMessage(session, "Mail sent.", allocator);
 }
