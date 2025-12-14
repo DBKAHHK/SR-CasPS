@@ -2,7 +2,6 @@ const std = @import("std");
 const protocol = @import("protocol");
 const Session = @import("../session.zig");
 const Packet = @import("../Packet.zig");
-const FreeSrAdapter = @import("../data/freesr_adapter.zig");
 const MiscDefaults = @import("../data/misc_defaults.zig");
 
 pub const GameConfig = @import("../data/game_config.zig");
@@ -17,19 +16,16 @@ const Allocator = std.mem.Allocator;
 
 const Data = @import("../data.zig");
 
-pub fn loadGameConfigAuto(allocator: Allocator) !GameConfig.GameConfig {
-    const fsr = FreeSrAdapter.loadFromFreesr(allocator) catch |err| switch (err) {
-        error.FileNotFound => null,
-        else => return err,
-    };
+fn updateGameConfigMtime() !void {
+    const stat = try std.fs.cwd().statFile("freesr-data.json");
+    game_config_mtime = stat.mtime;
+}
 
-    if (fsr) |cfg| {
-        std.log.info("Loaded freesr-data.json", .{});
-        return cfg;
-    }
-
-    std.log.info("Loaded config.json", .{});
-    return try loadConfig(GameConfig.GameConfig, GameConfig.parseConfig, allocator, "config.json");
+pub fn loadGameConfigFromFreesr(allocator: Allocator) !GameConfig.GameConfig {
+    const cfg = try loadConfig(GameConfig.GameConfig, GameConfig.parseConfig, allocator, "freesr-data.json");
+    try updateGameConfigMtime();
+    std.log.info("Loaded freesr-data.json", .{});
+    return cfg;
 }
 pub const GameConfigCache = struct {
     allocator: Allocator,
@@ -56,7 +52,7 @@ pub const GameConfigCache = struct {
     buff_info_config: MiscConfig.TextMapConfig,
 
     pub fn init(allocator: Allocator) !GameConfigCache {
-        var game_cfg = try loadGameConfigAuto(allocator);
+        var game_cfg = try loadGameConfigFromFreesr(allocator);
 
         errdefer game_cfg.deinit();
 
@@ -205,10 +201,10 @@ pub fn deinitGameGlobals() void {
 }
 var game_config_mtime: i128 = 0;
 pub fn UpdateGameConfig() !void {
-    const stat = try std.fs.cwd().statFile("config.json");
+    const stat = try std.fs.cwd().statFile("freesr-data.json");
     if (stat.mtime > game_config_mtime) {
         global_game_config_cache.game_config.deinit();
-        global_game_config_cache.game_config = try loadConfig(GameConfig.GameConfig, GameConfig.parseConfig, global_main_allocator, "config.json");
+        global_game_config_cache.game_config = try loadGameConfigFromFreesr(global_main_allocator);
         game_config_mtime = stat.mtime;
     }
 }
@@ -235,7 +231,7 @@ pub fn reloadGameConfig() !void {
     // 先释放旧的 game_config
     global_game_config_cache.game_config.deinit();
 
-    // 再重新加载（这里用你之前写好的 loadGameConfigAuto，优先 freesr-data）
+    // 再重新加载 freesr-data
     global_game_config_cache.game_config =
-        try loadGameConfigAuto(global_main_allocator);
+        try loadGameConfigFromFreesr(global_main_allocator);
 }

@@ -31,8 +31,11 @@ pub const LineupManager = struct {
                 for (BattleManager.selectedAvatarID.items) |id| {
                     if (id != 0) try ids.append(id);
                 }
+            } else if (config.loadout.items.len > 0) {
+                // 3) Use freesr-data loadout if provided.
+                try ids.appendSlice(config.loadout.items);
             } else {
-                // 3) Fallback to misc.json defaults (global single source of truth).
+                // 4) Fallback to misc.json defaults (global single source of truth).
                 const misc_lineup = ConfigManager.global_misc_defaults.player.lineup;
                 if (misc_lineup.len > 0) {
                     try ids.appendSlice(misc_lineup);
@@ -40,7 +43,7 @@ pub const LineupManager = struct {
             }
         }
 
-        // 4) If still empty, at least ensure MC exists to avoid empty lineup crashes.
+        // 5) If still empty, at least ensure MC exists to avoid empty lineup crashes.
         if (ids.items.len == 0) try ids.append(AvatarManager.getMcId());
 
         return try buildLineup(self.allocator, ids.items, null);

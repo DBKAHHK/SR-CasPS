@@ -50,9 +50,12 @@ fn parseArrayU32(allocator: Allocator, node: std.json.Value) ![]u32 {
 fn parseMaterials(allocator: Allocator, node: std.json.Value) ![]Material {
     var list = try allocator.alloc(Material, node.array.items.len);
     for (node.array.items, 0..) |val, i| {
+        const obj = val.object;
+        const id_node = obj.get("id") orelse obj.get("tid") orelse return error.MissingMaterialId;
+        const count_node = obj.get("count") orelse return error.MissingMaterialCount;
         list[i] = Material{
-            .id = @intCast(val.object.get("id").?.integer),
-            .count = @intCast(val.object.get("count").?.integer),
+            .id = @intCast(id_node.integer),
+            .count = @intCast(count_node.integer),
         };
     }
     return list;

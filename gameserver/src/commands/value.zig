@@ -9,7 +9,6 @@ const BattleManager = @import("../manager/battle_mgr.zig");
 const Logic = @import("../utils/logic.zig");
 const PlayerStateMod = @import("../player_state.zig");
 const ItemDb = @import("../item_db.zig");
-const FreeSrAdapter = @import("../data/freesr_adapter.zig");
 const Sync = @import("sync.zig");
 const protocol = @import("protocol");
 const CmdID = protocol.CmdID;
@@ -533,9 +532,9 @@ pub fn saveLineup(session: *Session, _: []const u8, allocator: std.mem.Allocator
 pub fn syncFreeseData(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
     _ = args; // 目前不用参数
 
-    // 1) 重载 GameConfig（优先 freesr-data.json）
+    // 1) 重载 GameConfig（freesr-data.json）
     ConfigManager.reloadGameConfig() catch {
-        try commandhandler.sendMessage(session, "重新加载 freesr-data.json / config.json 失败", allocator);
+        try commandhandler.sendMessage(session, "重新加载 freesr-data.json 失败", allocator);
         return;
     };
 

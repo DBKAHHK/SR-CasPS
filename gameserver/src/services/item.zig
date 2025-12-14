@@ -3,12 +3,14 @@ const protocol = @import("protocol");
 const Session = @import("../Session.zig");
 const Packet = @import("../Packet.zig");
 const Data = @import("../data.zig");
+const GameConfig = @import("../data/game_config.zig");
 const LineupManager = @import("../manager/lineup_mgr.zig");
 const Sync = @import("../commands/sync.zig");
 const AvatarManager = @import("../manager/avatar_mgr.zig");
 const ConfigManager = @import("../manager/config_mgr.zig");
 const PlayerStateMod = @import("../player_state.zig"); // 新增
 const ItemDb = @import("../item_db.zig");
+const BattleManager = @import("../manager/battle_mgr.zig");
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
@@ -16,13 +18,67 @@ const CmdID = protocol.CmdID;
 
 const config = &ConfigManager.global_game_config_cache.game_config;
 
+fn findAvatarConfig(avatar_id: u32) ?*const GameConfig.Avatar {
+    for (config.avatar_config.items) |*avatar| {
+        if (avatar.id == avatar_id) return avatar;
+    }
+    return null;
+}
+
+fn appendAvatarEquipmentAndRelics(
+    allocator: Allocator,
+    rsp: *protocol.GetBagScRsp,
+    avatarConf: *const GameConfig.Avatar,
+    seen: *std.AutoHashMap(u32, bool),
+) !void {
+    const avatar_id = avatarConf.id;
+    if (seen.contains(avatar_id)) return;
+    _ = try seen.put(avatar_id, true);
+    const lc = try AvatarManager.createEquipment(avatarConf.lightcone, avatar_id);
+    try rsp.equipment_list.append(lc);
+    for (avatarConf.relics.items) |input| {
+        const relic = try AvatarManager.createRelic(allocator, input, avatar_id);
+        try rsp.relic_list.append(relic);
+    }
+}
+
+fn appendAllAvatarEquipments(allocator: Allocator, rsp: *protocol.GetBagScRsp) !void {
+    var seen = std.AutoHashMap(u32, bool).init(allocator);
+    defer seen.deinit();
+
+    for (config.avatar_config.items) |*avatarConf| {
+        try appendAvatarEquipmentAndRelics(allocator, rsp, avatarConf, &seen);
+    }
+
+    var lineup_mgr = LineupManager.LineupManager.init(allocator);
+    var lineup = try lineup_mgr.createLineup();
+    defer LineupManager.deinitLineupInfo(&lineup);
+
+    var ensure_list = ArrayList(u32).init(allocator);
+    defer ensure_list.deinit();
+    for (lineup.avatar_list.items) |avatar| {
+        try ensure_list.append(avatar.id);
+    }
+    for (BattleManager.funmodeAvatarID.items) |avatar_id| {
+        try ensure_list.append(avatar_id);
+    }
+
+    for (ensure_list.items) |avatar_id| {
+        if (seen.contains(avatar_id)) continue;
+        if (findAvatarConfig(avatar_id)) |avatarConf| {
+            try appendAvatarEquipmentAndRelics(allocator, rsp, avatarConf, &seen);
+        }
+    }
+}
+
 pub fn syncBag(session: *Session, allocator: Allocator) !void {
+    ConfigManager.UpdateGameConfig() catch |err| {
+        std.log.err("Failed to reload freesr-data.json: {any}", .{err});
+    };
+
     var rsp = protocol.GetBagScRsp.init(allocator);
     rsp.equipment_list = std.ArrayList(protocol.Equipment).init(allocator);
     rsp.relic_list = std.ArrayList(protocol.Relic).init(allocator);
-
-    const game_config = session.game_config_cache;
-    _ = game_config; // 避免 unused local constant 报错
 
     if (session.player_state) |*state| {
         for (state.inventory.materials.items) |mat| {
@@ -40,15 +96,8 @@ pub fn syncBag(session: *Session, allocator: Allocator) !void {
         }
     }
 
-    // 2) 装备 / 遗器：沿用你原来的做法（根据 avatar_config 自动生成一套）
-    for (config.avatar_config.items) |avatarConf| {
-        const lc = try AvatarManager.createEquipment(avatarConf.lightcone, avatarConf.id);
-        try rsp.equipment_list.append(lc);
-        for (avatarConf.relics.items) |input| {
-            const r = try AvatarManager.createRelic(allocator, input, avatarConf.id);
-            try rsp.relic_list.append(r);
-        }
-    }
+    // 2) 装备 / 遗器：根据所有角色生成可展示的光锥与遗器
+    try appendAllAvatarEquipments(allocator, &rsp);
 
     try session.send(CmdID.CmdGetBagScRsp, rsp);
 }

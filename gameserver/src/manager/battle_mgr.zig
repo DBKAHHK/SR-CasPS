@@ -56,7 +56,26 @@ fn createBattleRelic(allocator: Allocator, id: u32, level: u32, main_affix_id: u
     return relic;
 }
 
-fn createBattleAvatar(allocator: Allocator, avatarConf: Config.Avatar) !protocol.BattleAvatar {
+fn applyCustomStats(avatar: *protocol.BattleAvatar, custom_stats: []const Config.CustomStat) void {
+    if (avatar.sp_bar == null) {
+        avatar.sp_bar = .{ .cur_sp = 0, .max_sp = 10000 };
+    }
+    const sp = &avatar.sp_bar.?;
+
+    for (custom_stats) |cs| {
+        if (cs.value <= 0) continue;
+        if (std.mem.eql(u8, cs.key, "hp")) {
+            avatar.hp = @intCast(cs.value * 100);
+        } else if (std.mem.eql(u8, cs.key, "sp")) {
+            sp.cur_sp = @intCast(cs.value * 100);
+        } else if (std.mem.eql(u8, cs.key, "sp_max")) {
+            sp.max_sp = @intCast(cs.value * 100);
+        }
+    }
+    if (sp.cur_sp > sp.max_sp) sp.cur_sp = sp.max_sp;
+}
+
+fn createBattleAvatar(allocator: Allocator, avatarConf: Config.Avatar, custom_stats: []const Config.CustomStat) !protocol.BattleAvatar {
     var avatar = protocol.BattleAvatar.init(allocator);
     avatar.id = avatarConf.id;
     avatar.hp = avatarConf.hp * 100;
@@ -90,6 +109,7 @@ fn createBattleAvatar(allocator: Allocator, avatarConf: Config.Avatar) !protocol
             }
         }
     }
+    applyCustomStats(&avatar, custom_stats);
     return avatar;
 }
 
@@ -330,13 +350,13 @@ fn addMonsterWaves(allocator: Allocator, battle: *protocol.SceneBattleInfo, mons
     }
 }
 
-fn addStageBlessings(allocator: Allocator, battle: *protocol.SceneBattleInfo, blessings: []const u32) !void {
+fn addStageBlessings(allocator: Allocator, battle: *protocol.SceneBattleInfo, blessings: []const Config.Blessing) !void {
     for (blessings) |blessing| {
         var targetIndexList = ArrayList(u32).init(allocator);
         errdefer targetIndexList.deinit();
         try targetIndexList.append(0);
         var buff = protocol.BattleBuff{
-            .id = blessing,
+            .id = blessing.id,
             .level = 1,
             .owner_index = 0xffffffff,
             .wave_flag = 0xffffffff,
@@ -391,13 +411,14 @@ fn commonBattleSetup(
     avatar_configs: []const Config.Avatar,
     monster_wave_configs: std.ArrayList(std.ArrayList(u32)),
     monster_level: u32,
-    stage_blessings: []const u32,
+    stage_blessings: []const Config.Blessing,
+    custom_stats: []const Config.CustomStat,
 ) !void {
     var avatarIndex: u32 = 0;
     for (selected_avatar_ids) |selected_id| {
         for (avatar_configs) |avatarConf| {
             if (avatarConf.id == selected_id) {
-                const avatar = try createBattleAvatar(allocator, avatarConf);
+                const avatar = try createBattleAvatar(allocator, avatarConf, custom_stats);
                 try addTechniqueBuffs(allocator, battle, avatar, avatarConf, avatarIndex);
                 try battle.battle_avatar_list.append(avatar);
                 avatarIndex += 1;
@@ -436,6 +457,7 @@ pub const BattleManager = struct {
             config.battle_config.monster_wave,
             config.battle_config.monster_level,
             config.battle_config.blessings.items,
+            config.battle_config.custom_stats.items,
         );
 
         return battle;
@@ -474,6 +496,12 @@ pub const ChallegeStageManager = struct {
                     if (Logic.Challenge().GetChallengeMode() != 1) 30 else 4,
                 );
                 found_stage = true;
+                var chal_blessings = ArrayList(Config.Blessing).init(self.allocator);
+                defer chal_blessings.deinit();
+                for (Logic.Challenge().GetChallengeBlessingID()) |id| {
+                    try chal_blessings.append(.{ .id = id, .level = 1 });
+                }
+
                 try commonBattleSetup(
                     self.allocator,
                     &battle,
@@ -481,7 +509,8 @@ pub const ChallegeStageManager = struct {
                     config.avatar_config.items,
                     stageConf.monster_list,
                     stageConf.level,
-                    Logic.Challenge().GetChallengeBlessingID(),
+                    chal_blessings.items,
+                    config.battle_config.custom_stats.items,
                 );
                 break;
             }

@@ -1,14 +1,38 @@
 const std = @import("std");
+const json = std.json;
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
+const AutoHashMap = std.AutoHashMap;
 
 pub const BattleConfig = struct {
     battle_id: u32,
     stage_id: u32,
     cycle_count: u32,
     monster_wave: ArrayList(ArrayList(u32)),
+    monster_wave_detail: ArrayList(ArrayList(MonsterDef)),
     monster_level: u32,
-    blessings: ArrayList(u32),
+    blessings: ArrayList(Blessing),
+    battle_type: ArrayList(u8),
+    path_resonance_id: u32,
+    custom_stats: ArrayList(CustomStat),
+};
+
+pub const Blessing = struct { id: u32, level: u32 };
+
+pub const CustomStat = struct {
+    key: []u8,
+    value: i64,
+};
+
+pub const SkillLevel = struct {
+    point_id: u32,
+    level: u32,
+};
+
+pub const MonsterDef = struct {
+    id: u32,
+    level: u32,
+    amount: u32,
 };
 
 pub const Lightcone = struct {
@@ -16,6 +40,7 @@ pub const Lightcone = struct {
     rank: u32,
     level: u32,
     promotion: u32,
+    internal_uid: u32,
 };
 
 pub const Relic = struct {
@@ -35,18 +60,23 @@ pub const Relic = struct {
     stat4: u32,
     cnt4: u32,
     step4: u32,
+    internal_uid: u32,
 };
 
 pub const Avatar = struct {
     id: u32,
     hp: u32,
     sp: u32,
+    sp_max: u32,
     level: u32,
     promotion: u32,
     rank: u32,
+    internal_uid: u32,
     lightcone: Lightcone,
     relics: ArrayList(Relic),
+    techniques: ArrayList(u32),
     use_technique: bool,
+    skill_levels: ArrayList(SkillLevel),
 };
 
 const StatCount = struct {
@@ -58,77 +88,326 @@ const StatCount = struct {
 pub const GameConfig = struct {
     battle_config: BattleConfig,
     avatar_config: ArrayList(Avatar),
+    loadout: ArrayList(u32),
 
     pub fn deinit(self: *GameConfig) void {
         for (self.battle_config.monster_wave.items) |*wave| {
             wave.deinit();
         }
         self.battle_config.monster_wave.deinit();
+        for (self.battle_config.monster_wave_detail.items) |*wave| {
+            wave.deinit();
+        }
+        self.battle_config.monster_wave_detail.deinit();
         self.battle_config.blessings.deinit();
+        const alloc = self.battle_config.custom_stats.allocator;
+        for (self.battle_config.custom_stats.items) |*cs| {
+            if (cs.key.len > 0) alloc.free(cs.key);
+        }
+        self.battle_config.custom_stats.deinit();
+        self.battle_config.battle_type.deinit();
 
         for (self.avatar_config.items) |*avatar| {
             avatar.relics.deinit();
+            avatar.techniques.deinit();
+            avatar.skill_levels.deinit();
         }
         self.avatar_config.deinit();
+        self.loadout.deinit();
     }
 };
 
-pub fn parseConfig(root: std.json.Value, allocator: Allocator) anyerror!GameConfig {
-    const battle_config_json = root.object.get("battle_config").?;
-    var battle_config = BattleConfig{
-        .battle_id = @intCast(battle_config_json.object.get("battle_id").?.integer),
-        .stage_id = @intCast(battle_config_json.object.get("stage_id").?.integer),
-        .cycle_count = @intCast(battle_config_json.object.get("cycle_count").?.integer),
-        .monster_wave = ArrayList(ArrayList(u32)).init(allocator),
-        .monster_level = @intCast(battle_config_json.object.get("monster_level").?.integer),
-        .blessings = ArrayList(u32).init(allocator),
+pub fn parseConfig(root: json.Value, allocator: Allocator) anyerror!GameConfig {
+    var game_cfg = GameConfig{
+        .battle_config = .{
+            .battle_id = 0,
+            .stage_id = 0,
+            .cycle_count = 0,
+            .monster_wave = ArrayList(ArrayList(u32)).init(allocator),
+            .monster_wave_detail = ArrayList(ArrayList(MonsterDef)).init(allocator),
+            .monster_level = 1,
+            .blessings = ArrayList(Blessing).init(allocator),
+            .battle_type = ArrayList(u8).init(allocator),
+            .path_resonance_id = 0,
+            .custom_stats = ArrayList(CustomStat).init(allocator),
+        },
+        .avatar_config = ArrayList(Avatar).init(allocator),
+        .loadout = ArrayList(u32).init(allocator),
     };
+    errdefer game_cfg.deinit();
 
-    for (battle_config_json.object.get("monster_wave").?.array.items) |wave| {
-        var wave_list = ArrayList(u32).init(allocator);
-        for (wave.array.items) |monster| {
-            try wave_list.append(@intCast(monster.integer));
+    var avatar_map = AutoHashMap(u32, usize).init(allocator);
+    defer avatar_map.deinit();
+
+    if (root.object.get("avatars")) |avs| {
+        var it = avs.object.iterator();
+        while (it.next()) |entry| {
+            const av = entry.value_ptr.*;
+
+            const avatar_id: u32 = @intCast(av.object.get("avatar_id").?.integer);
+            const level: u32 = @intCast(av.object.get("level").?.integer);
+            const promotion: u32 = @intCast(av.object.get("promotion").?.integer);
+            const hp_val: u32 = @intCast((av.object.get("max_hp") orelse json.Value{ .integer = 10000 }).integer);
+            const sp_max_val: u32 = @intCast((av.object.get("sp_max") orelse json.Value{ .integer = 100 }).integer);
+            const sp_cur_val: u32 = @intCast((av.object.get("sp_value") orelse json.Value{ .integer = sp_max_val }).integer);
+
+            var rank: u32 = 0;
+            if (av.object.get("data")) |dv| {
+                if (dv.object.get("rank")) |rv| rank = @intCast(rv.integer);
+            }
+
+            const idx = game_cfg.avatar_config.items.len;
+            try game_cfg.avatar_config.append(.{
+                .id = avatar_id,
+                .hp = hp_val,
+                .sp = sp_cur_val,
+                .sp_max = sp_max_val,
+                .level = level,
+                .promotion = promotion,
+                .rank = rank,
+                .lightcone = .{ .id = 0, .rank = 1, .level = 1, .promotion = 0, .internal_uid = 0 },
+                .relics = ArrayList(Relic).init(allocator),
+                .techniques = ArrayList(u32).init(allocator),
+                .use_technique = av.object.get("techniques") != null,
+                .internal_uid = @intCast((av.object.get("internal_uid") orelse json.Value{ .integer = 0 }).integer),
+                .skill_levels = ArrayList(SkillLevel).init(allocator),
+            });
+
+            if (av.object.get("techniques")) |techs| {
+                for (techs.array.items) |t| {
+                    try game_cfg.avatar_config.items[idx].techniques.append(@intCast(t.integer));
+                }
+                if (techs.array.items.len > 0) game_cfg.avatar_config.items[idx].use_technique = true;
+            }
+
+            if (av.object.get("data")) |dv| {
+                if (dv.object.get("skills")) |skills| {
+                    var it_sk = skills.object.iterator();
+                    while (it_sk.next()) |s_entry| {
+                        const key = s_entry.key_ptr.*;
+                        const val = s_entry.value_ptr.*;
+                        const point_id = std.fmt.parseInt(u32, key, 10) catch continue;
+                        const lvl_val: u32 = switch (val) {
+                            .integer => |iv| @intCast(iv),
+                            .float => |fv| @intFromFloat(fv),
+                            else => 0,
+                        };
+                        if (lvl_val > 0) {
+                            try game_cfg.avatar_config.items[idx].skill_levels.append(.{
+                                .point_id = point_id,
+                                .level = lvl_val,
+                            });
+                        }
+                    }
+                }
+            }
+
+            try avatar_map.put(avatar_id, idx);
         }
-        try battle_config.monster_wave.append(wave_list);
-    }
-    for (battle_config_json.object.get("blessings").?.array.items) |blessing| {
-        try battle_config.blessings.append(@intCast(blessing.integer));
     }
 
-    var avatar_config = ArrayList(Avatar).init(allocator);
-    for (root.object.get("avatar_config").?.array.items) |avatar_json| {
-        var avatar = Avatar{
-            .id = @intCast(avatar_json.object.get("id").?.integer),
-            .hp = @intCast(avatar_json.object.get("hp").?.integer),
-            .sp = @intCast(avatar_json.object.get("sp").?.integer),
-            .level = @intCast(avatar_json.object.get("level").?.integer),
-            .promotion = @intCast(avatar_json.object.get("promotion").?.integer),
-            .rank = @intCast(avatar_json.object.get("rank").?.integer),
-            .lightcone = undefined,
-            .relics = ArrayList(Relic).init(allocator),
-            .use_technique = avatar_json.object.get("use_technique").?.bool,
-        };
+    if (root.object.get("lightcones")) |lcs| {
+        for (lcs.array.items) |lc| {
+            const avatar_id: u32 = @intCast(lc.object.get("equip_avatar").?.integer);
+            if (!avatar_map.contains(avatar_id)) continue;
+            const idx = avatar_map.get(avatar_id).?;
 
-        const lightcone_json = avatar_json.object.get("lightcone").?;
-        avatar.lightcone = Lightcone{
-            .id = @intCast(lightcone_json.object.get("id").?.integer),
-            .rank = @intCast(lightcone_json.object.get("rank").?.integer),
-            .level = @intCast(lightcone_json.object.get("level").?.integer),
-            .promotion = @intCast(lightcone_json.object.get("promotion").?.integer),
-        };
+            game_cfg.avatar_config.items[idx].lightcone = .{
+                .id = @intCast(lc.object.get("item_id").?.integer),
+                .rank = @intCast(lc.object.get("rank").?.integer),
+                .level = @intCast(lc.object.get("level").?.integer),
+                .promotion = @intCast(lc.object.get("promotion").?.integer),
+                .internal_uid = @intCast((lc.object.get("internal_uid") orelse json.Value{ .integer = 0 }).integer),
+            };
+        }
+    }
 
-        for (avatar_json.object.get("relics").?.array.items) |relic_str| {
-            const relic = try parseRelic(relic_str.string, allocator);
-            try avatar.relics.append(relic);
+    if (root.object.get("relics")) |rels| {
+        for (rels.array.items) |r| {
+            const avatar_id: u32 = @intCast(r.object.get("equip_avatar").?.integer);
+            if (!avatar_map.contains(avatar_id)) continue;
+            const idx = avatar_map.get(avatar_id).?;
+
+            const relic_id: u32 = @intCast(r.object.get("relic_id").?.integer);
+            const level: u32 = @intCast(r.object.get("level").?.integer);
+            const main_affix: u32 = @intCast(r.object.get("main_affix_id").?.integer);
+            const internal_uid: u32 = @intCast((r.object.get("internal_uid") orelse json.Value{ .integer = 0 }).integer);
+
+            const subs_val = r.object.get("sub_affixes");
+
+            var sub_count: u32 = 0;
+            var s1: u32 = 0;
+            var c1: u32 = 0;
+            var t1: u32 = 0;
+            var s2: u32 = 0;
+            var c2: u32 = 0;
+            var t2: u32 = 0;
+            var s3: u32 = 0;
+            var c3: u32 = 0;
+            var t3: u32 = 0;
+            var s4: u32 = 0;
+            var c4: u32 = 0;
+            var t4: u32 = 0;
+
+            if (subs_val) |subs| {
+                sub_count = @intCast(subs.array.items.len);
+
+                for (subs.array.items, 0..) |sv, i| {
+                    const sid: u32 = @intCast(sv.object.get("sub_affix_id").?.integer);
+                    const cnt: u32 = @intCast(sv.object.get("count").?.integer);
+                    const step: u32 = @intCast(sv.object.get("step").?.integer);
+
+                    switch (i) {
+                        0 => {
+                            s1 = sid;
+                            c1 = cnt;
+                            t1 = step;
+                        },
+                        1 => {
+                            s2 = sid;
+                            c2 = cnt;
+                            t2 = step;
+                        },
+                        2 => {
+                            s3 = sid;
+                            c3 = cnt;
+                            t3 = step;
+                        },
+                        3 => {
+                            s4 = sid;
+                            c4 = cnt;
+                            t4 = step;
+                        },
+                        else => {},
+                    }
+                }
+            }
+
+            try game_cfg.avatar_config.items[idx].relics.append(.{
+                .id = relic_id,
+                .level = level,
+                .main_affix_id = main_affix,
+                .sub_count = sub_count,
+                .stat1 = s1,
+                .cnt1 = c1,
+                .step1 = t1,
+                .stat2 = s2,
+                .cnt2 = c2,
+                .step2 = t2,
+                .stat3 = s3,
+                .cnt3 = c3,
+                .step3 = t3,
+                .stat4 = s4,
+                .cnt4 = c4,
+                .step4 = t4,
+                .internal_uid = internal_uid,
+            });
+        }
+    }
+
+    if (root.object.get("battle_config")) |bc| {
+        if (bc.object.get("battle_id")) |v| game_cfg.battle_config.battle_id = @intCast(v.integer);
+        if (bc.object.get("stage_id")) |v| game_cfg.battle_config.stage_id = @intCast(v.integer);
+        if (bc.object.get("cycle_count")) |v| game_cfg.battle_config.cycle_count = @intCast(v.integer);
+        if (bc.object.get("path_resonance_id")) |v| game_cfg.battle_config.path_resonance_id = @intCast(v.integer);
+        if (bc.object.get("battle_type")) |v| {
+            if (v.string.len > 0) {
+                game_cfg.battle_config.battle_type.clearRetainingCapacity();
+                try game_cfg.battle_config.battle_type.appendSlice(v.string);
+            }
         }
 
-        try avatar_config.append(avatar);
+        if (bc.object.get("blessings")) |bless| {
+            for (bless.array.items) |b| {
+                switch (b) {
+                    .integer => |val| try game_cfg.battle_config.blessings.append(.{ .id = @intCast(val), .level = 1 }),
+                    .object => |obj| {
+                        if (obj.get("id")) |id_val| {
+                            const lvl: u32 = if (obj.get("level")) |lv| @intCast(lv.integer) else 1;
+                            try game_cfg.battle_config.blessings.append(.{
+                                .id = @intCast(id_val.integer),
+                                .level = lvl,
+                            });
+                        }
+                    },
+                    else => {},
+                }
+            }
+        }
+
+        if (bc.object.get("monsters")) |waves| {
+            for (waves.array.items) |wave| {
+                var w = ArrayList(u32).init(allocator);
+                var w_detail = ArrayList(MonsterDef).init(allocator);
+
+                for (wave.array.items) |m| {
+                    var mid: u32 = 0;
+                    var amt: u32 = 1;
+                    var lvl: u32 = 1;
+
+                    switch (m) {
+                        .object => |obj| {
+                            if (obj.get("monster_id")) |v| mid = @intCast(v.integer) else if (obj.get("id")) |v| mid = @intCast(v.integer);
+                            if (obj.get("amount")) |v| amt = @intCast(v.integer);
+                            if (obj.get("level")) |v| lvl = @intCast(v.integer);
+                        },
+                        .integer => |v| {
+                            mid = @intCast(v);
+                        },
+                        else => {},
+                    }
+
+                    if (lvl > game_cfg.battle_config.monster_level) game_cfg.battle_config.monster_level = lvl;
+                    try w_detail.append(.{ .id = mid, .level = lvl, .amount = amt });
+
+                    var i: u32 = 0;
+                    while (i < amt) : (i += 1) {
+                        try w.append(mid);
+                    }
+                }
+
+                try game_cfg.battle_config.monster_wave.append(w);
+                try game_cfg.battle_config.monster_wave_detail.append(w_detail);
+            }
+        }
+
+        if (bc.object.get("custom_stats")) |cs| {
+            for (cs.array.items) |item| {
+                if (item == .object) {
+                    const obj = item.object;
+                    if (obj.get("key")) |k| {
+                        const v = obj.get("value") orelse json.Value{ .integer = 0 };
+                        try game_cfg.battle_config.custom_stats.append(.{
+                            .key = try allocator.dupe(u8, k.string),
+                            .value = switch (v) {
+                                .integer => |iv| @intCast(iv),
+                                .float => |fv| @intFromFloat(fv),
+                                else => 0,
+                            },
+                        });
+                    }
+                }
+            }
+        }
     }
 
-    return GameConfig{
-        .battle_config = battle_config,
-        .avatar_config = avatar_config,
-    };
+    if (root.object.get("loadout")) |lo| {
+        for (lo.array.items) |entry| {
+            switch (entry) {
+                .integer => |val| try game_cfg.loadout.append(@intCast(val)),
+                .object => |obj| {
+                    if (obj.get("avatar_id")) |v| {
+                        try game_cfg.loadout.append(@intCast(v.integer));
+                    } else if (obj.get("id")) |v| {
+                        try game_cfg.loadout.append(@intCast(v.integer));
+                    }
+                },
+                else => {},
+            }
+        }
+    }
+
+    return game_cfg;
 }
 
 fn parseRelic(relic_str: []const u8, allocator: Allocator) !Relic {

@@ -5,6 +5,7 @@ const protocol = @import("protocol");
 
 const authentication = @import("authentication.zig");
 const dispatch = @import("dispatch.zig");
+const srtools = @import("srtools.zig");
 const PORT = 21000;
 
 pub const std_options = std.Options{
@@ -29,6 +30,7 @@ pub fn main() !void {
     router.post("/:product_name/mdk/shield/api/login", authentication.onShieldLogin, .{});
     router.post("/:product_name/mdk/shield/api/verify", authentication.onVerifyLogin, .{});
     router.post("/:product_name/combo/granter/login/v2/login", authentication.onComboTokenReq, .{});
+    router.post("/srtools", srtools.onSrtoolsSave, .{});
 
     std.log.info("Dispatch is listening at localhost:{?}", .{server.config.port});
     try server.listen();

@@ -103,7 +103,7 @@ pub fn createAvatar(
             .type = @intCast(i),
         });
     }
-    try createSkillTree(avatar.base_avatar_id, &avatar.skilltree_list);
+    try createSkillTree(avatar.base_avatar_id, &avatar.skilltree_list, avatarConf.skill_levels.items);
     return avatar;
 }
 pub fn createAllAvatar(
@@ -123,20 +123,31 @@ pub fn createAllAvatar(
     for (1..6) |i| {
         try avatar.has_taken_promotion_reward_list.append(@intCast(i));
     }
-    try createSkillTree(avatar.base_avatar_id, &avatar.skilltree_list);
+    try createSkillTree(avatar.base_avatar_id, &avatar.skilltree_list, &[_]Config.SkillLevel{});
     return avatar;
 }
 
 fn createSkillTree(
     base_avatar_id: u32,
     skilltree_list: *std.ArrayList(protocol.AvatarSkillTree),
+    overrides: []const Config.SkillLevel,
 ) !void {
     for (skill_config.avatar_skill_tree_config.items) |skill| {
         if (skill.avatar_id == base_avatar_id) {
-            if (skill.level == skill.max_level) {
+            var level: ?u32 = null;
+            for (overrides) |ov| {
+                if (ov.point_id == skill.point_id) {
+                    level = ov.level;
+                    break;
+                }
+            }
+            if (level == null and skill.level == skill.max_level) {
+                level = skill.max_level;
+            }
+            if (level) |lv| {
                 try skilltree_list.append(.{
                     .point_id = skill.point_id,
-                    .level = skill.max_level,
+                    .level = lv,
                 });
             }
         }
@@ -246,7 +257,7 @@ pub fn createAllMultiPath(
         multi.multi_path_skill_tree = ArrayList(protocol.AvatarSkillTree).init(allocator);
         for (groups[i].items) |avatar_id| {
             var skill_list = ArrayList(protocol.AvatarSkillTree).init(allocator);
-            try createSkillTree(avatar_id, &skill_list);
+            try createSkillTree(avatar_id, &skill_list, findSkillLevels(avatar_id));
             try multi.multi_path_skill_tree.appendSlice(skill_list.items);
             skill_list.deinit();
         }
@@ -255,6 +266,12 @@ pub fn createAllMultiPath(
     for (0..TYPE_COUNT) |i| groups[i].deinit();
 
     return multis;
+}
+fn findSkillLevels(avatar_id: u32) []const Config.SkillLevel {
+    for (config.avatar_config.items) |avatar| {
+        if (avatar.id == avatar_id) return avatar.skill_levels.items;
+    }
+    return &[_]Config.SkillLevel{};
 }
 fn getAvatarType(id: u32) protocol.MultiPathAvatarType {
     return switch (id) {

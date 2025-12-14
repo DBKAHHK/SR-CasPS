@@ -4,7 +4,7 @@ const Session = @import("../Session.zig");
 const Packet = @import("../Packet.zig");
 const Data = @import("../data.zig");
 const PlayerStateMod = @import("../player_state.zig");
-
+const ItemService = @import("item.zig");
 const Allocator = std.mem.Allocator;
 const ArrayList = std.ArrayList;
 const CmdID = protocol.CmdID;
@@ -69,6 +69,9 @@ pub fn onPlayerLoginFinish(session: *Session, _: *const Packet, allocator: Alloc
     try session.send(CmdID.CmdPlayerLoginFinishScRsp, protocol.PlayerLoginFinishScRsp{
         .retcode = 0,
     });
+
+    // Sync bag/relics/equipment after login completes so client UI can display them
+    try ItemService.syncBag(session, allocator);
 }
 
 pub fn onContentPackageGetData(session: *Session, _: *const Packet, allocator: Allocator) !void {
