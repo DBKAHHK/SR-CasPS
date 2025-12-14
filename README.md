@@ -3,13 +3,13 @@
 
 ## 已实现功能
 - 单进程启动：运行 `CastoricePS` 同时拉起 Dispatch 与 GameServer，无需额外 exe。
-- 配置拆分：`config.json` 负责角色/怪物/关卡等配置；`misc.json` 管理默认背包、位置、皮肤、阵容，占位阵容默认为 1407/1409/1413/1415。
+- 配置拆分：`freesr-data.json` 负责角色/怪物/关卡等配置；`misc.json` 管理默认背包、位置、皮肤、阵容，阵容。
 - 主角定制：`misc.json` 新增 `mc_gender`（male/female）与 `mc_path`（warrior/knight/shaman/memory），可用指令动态切换。
-- 基础玩法：登录与出生、战斗模拟（MOC/PF/AS 与挑战巅峰）、卡池模拟、背包/皮肤/装备发放，支持 fun mode。
+- 基础玩法：登录与玩家生成、战斗模拟（MOC/PF/AS 与挑战巅峰）、卡池模拟、背包/皮肤/装备发放，支持 fun mode。
 - 场景与信息：`/scene pos` 查看位置、`/scene reload` 重载场景配置、`/info` 查看玩家基本信息。
-- 调试/便利指令：`/give` 发物品（仅同步给客户端）、`/hp` `/sp`、`/level`、`/savelineup`、`/funmode`、`/gender`、`/path` 等，`/help` 查看列表。
-- freesr-data：存在 `freesr-data.json` 时会优先加载，否则回落 `config.json`。
-- 终端交互：程序内置输入行带粉色 `<CastoricePS>` 前缀，长日志不会遮挡输入；scene services 的超长日志默认关闭。
+- 调试/便利指令：`/give` 发物品（仅同步给客户端）、`/level`、`/savelineup`、`/funmode`、`/gender`、`/path` 等，`/help` 查看列表。
+- freesr-data：已经支持正常战斗和热重载，正在修复面板显示错误。
+- 终端交互：程序内置输入行带粉色 `<CastoricePS>` 前缀，长日志不会遮挡输入；scene services 的日志默认关闭。
 
 ## 编译与运行（Windows）
 1) 安装 Zig 0.14.1  
@@ -52,5 +52,6 @@ saves/                   # 可选，玩家存档
 ## 贡献与反馈
 欢迎提交 PR 或 Issue，描述清晰的复现步骤与期望行为有助于快速定位问题。***
 感谢Reversed Rooms，此项目基于仓库：
+
 https://git.xeondev.com/HonkaiSlopRail/dahlia-sr-0.14.1
 
