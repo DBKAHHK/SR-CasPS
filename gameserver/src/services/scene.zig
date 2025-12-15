@@ -47,9 +47,9 @@ pub fn onEnterScene(session: *Session, packet: *const Packet, allocator: Allocat
     const req = try packet.getProto(protocol.EnterSceneCsReq, allocator);
     defer req.deinit();
 
-    // 如果 session 有 player_state，从存档强制应用最新编队到运行时（保证进入场景时使用存档值）
+    // 如果 session �?player_state，从存档强制应用最新编队到运行时（保证进入场景时使用存档值）
     if (session.player_state) |*state| {
-        // we ignore errors here to avoid killing the scene entry — failure will be logged by caller
+        // we ignore errors here to avoid killing the scene entry �?failure will be logged by caller
         _ = PlayerStateMod.applySavedLineup(state) catch |err| {
             std.debug.print("applySavedLineup failed: {any}\n", .{err});
         };
@@ -294,12 +294,12 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
     rsp.prop_entity_id = req.prop_entity_id;
     rsp.retcode = 0;
 
-    // 检查是否为宝箱交互（通过解析的 InteractConfig），若是尝试授予奖励
+    // 检查是否为宝箱交互（通过解析�?InteractConfig），若是尝试授予奖励
     const interact_cfg = &ConfigManager.global_game_config_cache.interact_config;
     var is_chest_open: bool = false;
     for (interact_cfg.interact_config.items) |e| {
         if (e.interact_id == req.interact_id) {
-            // 检查 src/target 是否提到 "Chest" 并且 target 为 ChestUsed 或 Open
+            // 检�?src/target 是否提到 "Chest" 并且 target �?ChestUsed �?Open
             if (e.target_state) |t| {
                 if (std.mem.indexOf(u8, t, "ChestUsed") != null or std.mem.indexOf(u8, t, "Open") != null) {
                     if (e.src_state) |s| {
@@ -308,7 +308,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
                             break;
                         }
                     } else if (std.mem.indexOf(u8, t, "Chest") != null) {
-                        // target 里包含 Chest 并且 target indicates open/used
+                        // target 里包�?Chest 并且 target indicates open/used
                         is_chest_open = true;
                         break;
                     }
@@ -319,7 +319,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
 
     var new_prop_state: u32 = 0;
     if (is_chest_open) {
-        // 如果玩家没有 player_state 不处理奖励
+        // 如果玩家没有 player_state 不处理奖�?
         if (session.player_state) |*state| {
             // 如果这个 chest 已经被打开则不重复处理
             var already: bool = false;
@@ -333,10 +333,9 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
                 // set new_prop_state to 2 (commonly used for opened/used chests in resources)
                 new_prop_state = 2;
                 // 通知客户端宝箱打开
-                try ItemService.sendOpenChestNotify(session, allocator, req.prop_entity_id);
+                
 
-                // 发放奖励并保存（grantItems 内会保存）
-                try ItemService.grantFixedChestReward(session, allocator, req.prop_entity_id);
+                // 发放奖励并保存（grantItems 内会保存�?                
 
                 // 记录到玩家已开宝箱并持久化
                 try state.opened_chests.append(req.prop_entity_id);
@@ -347,7 +346,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
             }
         }
     } else {
-        // not a chest open action — leave default new_prop_state = 0
+        // not a chest open action �?leave default new_prop_state = 0
     }
 
     // send scene refresh so client updates prop visuals (add_entity with updated prop_state)

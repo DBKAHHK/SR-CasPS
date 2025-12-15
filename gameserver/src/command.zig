@@ -29,7 +29,7 @@ const commandList = [_]Command{
     .{ .name = "set", .action = "", .func = value_command.setGachaCommand },
     .{ .name = "tp", .action = "", .func = tp_command.handle },
     .{ .name = "unstuck", .action = "", .func = unstuck_command.handle },
-    .{ .name = "sync", .action = "", .func = value_command.syncSceneReload },
+    .{ .name = "sync", .action = "", .func = sync_command.onGenerateAndSync },
     .{ .name = "refill", .action = "", .func = refill_command.onRefill },
     .{ .name = "id", .action = "", .func = value_command.onBuffId },
     .{ .name = "funmode", .action = "", .func = value_command.FunMode },
@@ -43,8 +43,6 @@ const commandList = [_]Command{
     .{ .name = "stop", .action = "", .func = value_command.stop },
     .{ .name = "kick", .action = "", .func = value_command.kick },
     .{ .name = "mail", .action = "", .func = value_command.sendMail },
-    //.{ .name = "energy", .action = "", .func = value_command.setEnergy },
-    .{ .name = "syncdata", .action = "", .func = value_command.syncFreeseData },
 };
 
 pub fn handleCommand(session: *Session, msg: []const u8, allocator: Allocator) !void {

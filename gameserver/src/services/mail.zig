@@ -24,7 +24,7 @@ pub fn onGetMail(session: *Session, _: *const Packet, allocator: Allocator) !voi
     mail.title = .{ .Const = "Readme" };
     mail.is_read = false;
     mail.id = 1;
-    mail.content = .{ .Const = "CastoricePS is a free and open-source sofware" };
+    mail.content = .{ .Const = "CastoricePS is a free and open-source sofware\nJoin Discord.gg/dyn9NjBwzZ for more info." };
     mail.time = 1723334400;
     mail.expire_time = 17186330890;
     mail.mail_type = protocol.MailType.MAIL_TYPE_STAR;

@@ -1,57 +1,47 @@
 # CastoricePS（Zig 0.14.1）
-本仓库是基于 Zig 服务器，已将 Dispatch 和 GameServer 打包为单个可执行文件 `CastoricePS.exe`，自带图标并可直接运行。
+基于 Zig 的《崩坏：星穹铁道》私人服实现，`Dispatch + GameServer` 已打包为单一可执行文件 `CastoricePS.exe`（同目录运行）。
 
-## 已实现功能
-- 单进程启动：运行 `CastoricePS` 同时拉起 Dispatch 与 GameServer，无需额外 exe。
-- 配置拆分：`freesr-data.json` 负责角色/怪物/关卡等配置；`misc.json` 管理默认背包、位置、皮肤、阵容，阵容。
-- 主角定制：`misc.json` 新增 `mc_gender`（male/female）与 `mc_path`（warrior/knight/shaman/memory），可用指令动态切换。
-- 基础玩法：登录与玩家生成、战斗模拟（MOC/PF/AS 与挑战巅峰）、卡池模拟、背包/皮肤/装备发放，支持 fun mode。
-- 场景与信息：`/scene pos` 查看位置、`/scene reload` 重载场景配置、`/info` 查看玩家基本信息。
-- 调试/便利指令：`/give` 发物品（仅同步给客户端）、`/level`、`/savelineup`、`/funmode`、`/gender`、`/path` 等，`/help` 查看列表。
-- freesr-data：已经支持正常战斗和热重载，正在修复面板显示错误。
-- 终端交互：程序内置输入行带粉色 `<CastoricePS>` 前缀，长日志不会遮挡输入；scene services 的日志默认关闭。
+本项目完全免费。如果你为它付费，你被骗了。
 
-## 编译与运行（Windows）
-1) 安装 Zig 0.14.1  
-   下载 [Zig 0.14.1 x64](https://ziglang.org/download/0.14.1/zig-x86_64-windows-0.14.1.zip)，将 `zig.exe` 放入 PATH。Windows 下 `zig rc` 依赖内置 llvm-rc，可直接使用。
+- Discord：`Discord.gg/dyn9NjBwzZ`
+- srtools：`https://srtools.neonteam.dev/`（用于修改角色/光锥/遗器/战斗配置；保存后会写入本项目根目录 `freesr-data.json`）
 
-2) 准备资源  
-   确保仓库根目录存在：
-   - `config.json`、`misc.json`、`hotfix.json`（如需）
-   - `resources/` 目录及其中的各类配置 JSON
-   - `protocol/StarRail.proto`（若需重新生成协议，可用 `zig build gen-proto`）
-   - 可选：`saves/`（存档）、`icon_output.ico` 已用于嵌入，不必随发行版携带
+## 主要特性
+- 单进程启动：一个 `CastoricePS.exe` 同时拉起 Dispatch 与 GameServer
+- 配置分离：
+  - `freesr-data.json`：角色/光锥/遗器/战斗等（srtools 写入）
+  - `misc.json`：默认背包/主角性别与命途/阵容等偏好
+- 装备显示：背包（GetBag）返回的装备/遗器 `unique_id` 与角色穿戴引用保持一致
+- srtools 接入：`/srtools` 支持浏览器 CORS（可直接从网页保存）
+- 指令同步：仅保留 `/sync`，用于重载 `freesr-data.json` 并同步数据（完成后会强制客户端重连以避免界面黑屏）
+- 登录公告：进入游戏后推送一次紧急提示公告
 
-3) 构建  
-   - 调试运行：`zig build run-program`（会编译并直接运行）
-   - 生成可执行文件：`zig build -Doptimize=ReleaseSafe`（或 `ReleaseFast`），产物位于 `zig-out/bin/CastoricePS.exe`（同时生成 `CastoricePS.pdb` 供调试）
-
-4) 运行  
-   将 `CastoricePS.exe` 与 `config.json`、`misc.json`、`resources/` 等放在同一目录，直接启动或使用 `zig build run-program`。终端中输入 `/help` 可查看可用指令。
-
-## 发行版目录示例
+## 目录结构（运行时）
+建议把以下文件放在同一目录：
 ```
 CastoricePS.exe
-CastoricePS.pdb          # 可选，调试符号
-config.json
+freesr-data.json
 misc.json
 hotfix.json              # 可选
-resources/               # 所有资源配置文件
-saves/                   # 可选，玩家存档
+resources/               # 资源配置
+saves/                   # 可选：玩家存档
 ```
 
-## 常用指令速览
-- `/help` 查看帮助
-- `/info` 玩家基础信息
-- `/scene pos` 当前坐标；`/scene reload` 重载场景配置
-- `/gender <male|female>`、`/path <warrior|knight|shaman|memory>` 切换主角
-- `/give <itemId> <count>` 发物品（客户端侧同步）
-- `/hp <n>` `/sp <n>` `/level <n>`、`/savelineup`、`/funmode on|off`
-- `/syncdata` 重新加载 freesr-data/config
+## 编译与运行（Windows）
+1) 安装 Zig 0.14.1，并把 `zig.exe` 加入 PATH
 
-## 贡献与反馈
-欢迎提交 PR 或 Issue，描述清晰的复现步骤与期望行为有助于快速定位问题。***
-感谢Reversed Rooms，此项目基于仓库：
+2) 构建并运行：
+- 开发运行：`zig build run-program`
+- 仅构建：`zig build`
+- 发布构建：`zig build -Doptimize=ReleaseSafe`（产物在 `zig-out/bin/CastoricePS.exe`）
 
-https://git.xeondev.com/HonkaiSlopRail/dahlia-sr-0.14.1
+## 常用指令
+- `/help` 查看全部指令
+- `/sync` 重载 `freesr-data.json` 并同步（会强制客户端重连）
+- `/scene pos` 查看坐标；`/scene reload` 重载场景配置
+- `/info` 查看玩家基本信息
+- `/give <itemId> <count>` 发放材料（测试用途）
 
+## 开发提示
+- srtools 网页保存的数据会写入根目录 `freesr-data.json`，服务器侧会在 `/sync` 时重新加载
+- 如果你频繁 `zig build` 提示 `AccessDenied`，通常是 `CastoricePS.exe` 正在运行占用文件，先退出进程再构建

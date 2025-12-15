@@ -509,7 +509,7 @@ pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator
 pub fn stop(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
     // Inform client then close connection to force logout.
     try commandhandler.sendMessage(session, "Server will stop your session", allocator);
-    session.stream.close();
+    session.close();
 }
 
 pub fn kick(session: *Session, _: []const u8, allocator: Allocator) !void {
@@ -518,7 +518,7 @@ pub fn kick(session: *Session, _: []const u8, allocator: Allocator) !void {
     notify.kick_type = .KICK_BY_GM;
     try session.send(CmdID.CmdPlayerKickOutScNotify, notify);
     try commandhandler.sendMessage(session, "You have been kicked by admin.", allocator);
-    session.stream.close();
+    session.close();
 }
 
 pub fn saveLineup(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {

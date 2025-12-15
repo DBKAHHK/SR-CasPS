@@ -95,11 +95,26 @@ pub fn createAvatar(
     for (1..6) |i| {
         try avatar.has_taken_promotion_reward_list.append(@intCast(i));
     }
-    avatar.equipment_unique_id = Uid.nextGlobalId();
+    // 角色穿戴的光锥/遗器需要和 GetBag 返回的 unique_id 对得上，
+    // 否则客户端会认为“没有装备”。
+    avatar.equipment_unique_id = if (avatarConf.lightcone.internal_uid != 0)
+        avatarConf.lightcone.internal_uid
+    else
+        Uid.nextGlobalId();
+
     avatar.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);
-    for (0..6) |i| {
+    const max_slots: usize = 6;
+    const count: usize = @min(max_slots, avatarConf.relics.items.len);
+    for (0..count) |i| {
+        const relic_uid = avatarConf.relics.items[i].internal_uid;
         try avatar.equip_relic_list.append(.{
-            .relic_unique_id = Uid.nextGlobalId(),
+            .relic_unique_id = if (relic_uid != 0) relic_uid else Uid.nextGlobalId(),
+            .type = @intCast(i),
+        });
+    }
+    for (count..max_slots) |i| {
+        try avatar.equip_relic_list.append(.{
+            .relic_unique_id = 0,
             .type = @intCast(i),
         });
     }
@@ -159,7 +174,7 @@ pub fn createEquipment(
     dress_avatar_id: u32,
 ) !protocol.Equipment {
     return protocol.Equipment{
-        .unique_id = Uid.nextGlobalId(),
+        .unique_id = if (lightconeConf.internal_uid != 0) lightconeConf.internal_uid else Uid.nextGlobalId(),
         .tid = lightconeConf.id,
         .is_protected = true,
         .level = lightconeConf.level,
@@ -177,7 +192,7 @@ pub fn createRelic(
     var r = protocol.Relic{
         .tid = relicConf.id,
         .main_affix_id = relicConf.main_affix_id,
-        .unique_id = Uid.nextGlobalId(),
+        .unique_id = if (relicConf.internal_uid != 0) relicConf.internal_uid else Uid.nextGlobalId(),
         .exp = 0,
         .dress_avatar_id = dress_avatar_id,
         .is_protected = true,
@@ -242,7 +257,9 @@ pub fn createAllMultiPath(
         multi.avatar_id = avatar_types[i];
         multi.rank = ranks[i];
         multi.dressed_skin_id = getSkinId(@intCast(@intFromEnum(avatar_types[i])));
-        const seed_start = Uid.getCurrentGlobalId() - (indexes[i] * 7);
+        const cur = Uid.getCurrentGlobalId();
+        const needed = indexes[i] * 7;
+        const seed_start = if (cur > needed) cur - needed else 1;
         var gen = Uid.UidGenerator().init(seed_start);
         multi.path_equipment_id = gen.nextId();
         multi.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);

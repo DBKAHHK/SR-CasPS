@@ -64,7 +64,7 @@ pub fn onPrivateChatHistory(session: *Session, _: *const Packet, allocator: Allo
     rsp.contact_side = 2000;
     try rsp.chat_message_list.appendSlice(&[_]protocol.ChatMessageData{
         .{
-            .content = .{ .Const = "Use https://relic-builder.vercel.app/ to setup config" },
+            .content = .{ .Const = "Use https://srtools.neonteam.dev/ to setup config" },
             .message_type = .MSG_TYPE_CUSTOM_TEXT,
             .create_time = 0,
             .sender_id = 2000,

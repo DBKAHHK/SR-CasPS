@@ -12,9 +12,7 @@ pub fn handle(session: *Session, _: []const u8, allocator: Allocator) !void {
     try commandhandler.sendMessage(session, "/id to turn ON custom mode for challenge mode. /id info to check current challenge id. /id off to turn OFF\n", allocator);
     try commandhandler.sendMessage(session, "/funmode to Sillyism\n", allocator);
     try commandhandler.sendMessage(session, "You can enter MoC, PF, AS via F4 menu\n", allocator);
-    try commandhandler.sendMessage(session, "/sync is an alias of /scene reload (reload configs)", allocator);
-    try commandhandler.sendMessage(session, "Please strictly distinguish between /sync (reload) and /syncdata (freesr sync)", allocator);
-    try commandhandler.sendMessage(session, "/syncdata to sync your free-sr data(Beta, only test)", allocator);
+    try commandhandler.sendMessage(session, "/sync reloads freesr-data.json and syncs items/avatars", allocator);
     try commandhandler.sendMessage(session, "/give to give your a Material, such as credits(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/level to set your Trailblaze Level(Beta, only test)", allocator);
     try commandhandler.sendMessage(session, "/tp to teleport(Beta, only test)", allocator);

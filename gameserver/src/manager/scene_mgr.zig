@@ -144,7 +144,10 @@ pub const SceneManager = struct {
             }
         }
 
-        scene_info.leader_entity_id = config.avatar_config.items[0].id + 100000;
+        scene_info.leader_entity_id = if (config.avatar_config.items.len > 0)
+            @intCast(getBaseAvatarId(config.avatar_config.items[0].id) + 100000)
+        else
+            0;
         scene_info.world_id = 501;
         scene_info.client_pos_version = 1;
         var group_map = std.AutoHashMap(u32, protocol.SceneEntityGroupInfo).init(self.allocator);

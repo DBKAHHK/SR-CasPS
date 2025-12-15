@@ -6,10 +6,25 @@ const okMessage = "OK";
 const invalidJsonMessage = "invalid JSON payload";
 const invalidDataMessage = "srtools data must be an object";
 
+fn addCorsHeaders(res: *httpz.Response) void {
+    res.header("Access-Control-Allow-Origin", "*");
+    res.header("Access-Control-Allow-Methods", "POST, OPTIONS");
+    res.header("Access-Control-Allow-Headers", "content-type");
+    res.header("Access-Control-Max-Age", "86400");
+}
+
+pub fn onSrtoolsOptions(_: *httpz.Request, res: *httpz.Response) !void {
+    addCorsHeaders(res);
+    res.status = 204;
+    res.body = "";
+}
+
 pub fn onSrtoolsSave(req: *httpz.Request, res: *httpz.Response) !void {
     const allocator = res.arena;
     var status: u16 = 200;
     var message: []const u8 = okMessage;
+
+    addCorsHeaders(res);
 
     if (req.body()) |payload| {
         if (payload.len != 0) {

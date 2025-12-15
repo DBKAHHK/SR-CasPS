@@ -30,6 +30,7 @@ pub fn main() !void {
     router.post("/:product_name/mdk/shield/api/login", authentication.onShieldLogin, .{});
     router.post("/:product_name/mdk/shield/api/verify", authentication.onVerifyLogin, .{});
     router.post("/:product_name/combo/granter/login/v2/login", authentication.onComboTokenReq, .{});
+    router.options("/srtools", srtools.onSrtoolsOptions, .{});
     router.post("/srtools", srtools.onSrtoolsSave, .{});
 
     std.log.info("Dispatch is listening at localhost:{?}", .{server.config.port});
