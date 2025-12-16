@@ -24,6 +24,15 @@
         android:typeface="monospace"/>
 
     <TextView
+        android:id="@+id/execPathText"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="4dp"
+        android:text="ExecDir: -"
+        android:textSize="12sp"
+        android:typeface="monospace"/>
+
+    <TextView
         android:id="@+id/publicPathText"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

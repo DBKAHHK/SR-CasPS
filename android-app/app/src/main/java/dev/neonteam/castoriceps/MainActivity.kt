@@ -11,6 +11,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
+import android.system.Os
 import java.io.File
 import java.io.InputStream
 import java.util.concurrent.Executors
@@ -20,6 +21,7 @@ class MainActivity : AppCompatActivity() {
 
     private var process: Process? = null
     private var workingDir: File? = null
+    private var execDir: File? = null
 
     private val prefs by lazy { getSharedPreferences("castoriceps", MODE_PRIVATE) }
 
@@ -29,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
         val statusText = findViewById<TextView>(R.id.statusText)
         val pathText = findViewById<TextView>(R.id.pathText)
+        val execPathText = findViewById<TextView>(R.id.execPathText)
         val publicPathText = findViewById<TextView>(R.id.publicPathText)
         val logText = findViewById<TextView>(R.id.logText)
         val argsEdit = findViewById<EditText>(R.id.argsEdit)
@@ -45,7 +48,10 @@ class MainActivity : AppCompatActivity() {
 
         // 默认使用 data/data（内部目录），更稳定；公共目录作为可选调试数据源。
         workingDir = File(filesDir, "castoriceps").also { it.mkdirs() }
+        // 二进制放到 code_cache：部分系统对 filesDir 可能 noexec，导致 error=13
+        execDir = File(codeCacheDir, "castoriceps-bin").also { it.mkdirs() }
         pathText.text = "Dir: ${workingDir?.absolutePath ?: "-"}"
+        execPathText.text = "ExecDir: ${execDir?.absolutePath ?: "-"}"
         fun setPublicPathText(text: String) {
             runOnUiThread { publicPathText.text = text }
         }
@@ -130,11 +136,16 @@ class MainActivity : AppCompatActivity() {
 
         fun ensureServerFiles() {
             val dir = workingDir ?: return
-            val bin = File(dir, "CastoricePS")
+            val binDir = execDir ?: return
+            val bin = File(binDir, "CastoricePS")
             if (!bin.exists()) {
                 appendLog("Extracting asset: CastoricePS -> ${bin.absolutePath}")
                 extractAsset("CastoricePS", bin)
-                bin.setExecutable(true, true)
+                try {
+                    Os.chmod(bin.absolutePath, 0o700)
+                } catch (t: Throwable) {
+                    appendLog("chmod failed: ${t.message}")
+                }
             }
             val freesr = File(dir, "freesr-data.json")
             if (!freesr.exists()) {
@@ -227,7 +238,7 @@ class MainActivity : AppCompatActivity() {
                     ensureServerFiles()
                     importConfigsFromPublicIfEnabled()
                     val dir = workingDir ?: return@execute
-                    val bin = File(dir, "CastoricePS")
+                    val bin = File(execDir ?: return@execute, "CastoricePS")
 
                     val args = argsEdit.text.toString()
                         .trim()
