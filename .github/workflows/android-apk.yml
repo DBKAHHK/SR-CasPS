@@ -1,0 +1,65 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "android-app/**"
+      - "gameserver/**"
+      - "dispatch/**"
+      - "program/**"
+      - "protocol/**"
+      - "build.zig"
+      - "build.zig.zon"
+      - "freesr-data.json"
+      - "misc.json"
+      - "hotfix.json"
+      - ".github/workflows/android-apk.yml"
+
+jobs:
+  build-apk:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Setup Zig 0.14.1
+        uses: goto-bus-stop/setup-zig@v2
+        with:
+          version: "0.14.1"
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v4
+
+      - name: Build Android ELF (aarch64)
+        run: |
+          zig version
+          zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseSafe
+
+      - name: Prepare app assets
+        run: |
+          mkdir -p android-app/app/src/main/assets
+          cp zig-out/bin/CastoricePS android-app/app/src/main/assets/CastoricePS
+          cp freesr-data.json android-app/app/src/main/assets/freesr-data.json
+          cp misc.json android-app/app/src/main/assets/misc.json
+          cp hotfix.json android-app/app/src/main/assets/hotfix.json
+
+      - name: Build debug APK
+        run: |
+          gradle -p android-app :app:assembleDebug
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: CastoricePS-android-debug-apk
+          path: android-app/app/build/outputs/apk/debug/app-debug.apk
+
