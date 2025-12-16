@@ -18,6 +18,18 @@ const skill_config = &ConfigManager.global_game_config_cache.avatar_skill_config
 pub var m7th: u32 = 1224;
 pub var mc_id: u32 = 0;
 
+fn stableItemUid(tag: []const u8, avatar_id: u32, tid: u32, slot: u32) u32 {
+    var h = std.hash.Wyhash.init(0);
+    h.update(tag);
+    h.update(std.mem.asBytes(&avatar_id));
+    h.update(std.mem.asBytes(&tid));
+    h.update(std.mem.asBytes(&slot));
+    const v: u64 = h.final();
+    // keep it non-zero and inside u32
+    const u: u32 = @intCast(@as(u64, 1) + (v % @as(u64, 0xFFFF_FFFE)));
+    return u;
+}
+
 fn mapMcId(gender: MiscDefaults.Gender, path: MiscDefaults.Path) u32 {
     const base: u32 = switch (path) {
         .warrior => 0,
@@ -95,20 +107,28 @@ pub fn createAvatar(
     for (1..6) |i| {
         try avatar.has_taken_promotion_reward_list.append(@intCast(i));
     }
-    // 角色穿戴的光锥/遗器需要和 GetBag 返回的 unique_id 对得上，
-    // 否则客户端会认为“没有装备”。
-    avatar.equipment_unique_id = if (avatarConf.lightcone.internal_uid != 0)
+    // 角色穿戴的光锥/遗器需要和 GetBag 返回的 unique_id 对得上；
+    // 当 freesr-data 缺失 internal_uid 时，使用稳定派生的 uid，避免因生成顺序/重置导致不一致。
+    avatar.equipment_unique_id = if (avatarConf.lightcone.id == 0)
+        0
+    else if (avatarConf.lightcone.internal_uid != 0)
         avatarConf.lightcone.internal_uid
     else
-        Uid.nextGlobalId();
+        stableItemUid("LC", avatarConf.id, avatarConf.lightcone.id, 0);
 
     avatar.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);
     const max_slots: usize = 6;
     const count: usize = @min(max_slots, avatarConf.relics.items.len);
     for (0..count) |i| {
-        const relic_uid = avatarConf.relics.items[i].internal_uid;
+        const relic_conf = avatarConf.relics.items[i];
+        const relic_uid = if (relic_conf.id == 0)
+            0
+        else if (relic_conf.internal_uid != 0)
+            relic_conf.internal_uid
+        else
+            stableItemUid("RELIC", avatarConf.id, relic_conf.id, @intCast(i));
         try avatar.equip_relic_list.append(.{
-            .relic_unique_id = if (relic_uid != 0) relic_uid else Uid.nextGlobalId(),
+            .relic_unique_id = relic_uid,
             .type = @intCast(i),
         });
     }
@@ -174,7 +194,10 @@ pub fn createEquipment(
     dress_avatar_id: u32,
 ) !protocol.Equipment {
     return protocol.Equipment{
-        .unique_id = if (lightconeConf.internal_uid != 0) lightconeConf.internal_uid else Uid.nextGlobalId(),
+        .unique_id = if (lightconeConf.internal_uid != 0)
+            lightconeConf.internal_uid
+        else
+            stableItemUid("LC", dress_avatar_id, lightconeConf.id, 0),
         .tid = lightconeConf.id,
         .is_protected = true,
         .level = lightconeConf.level,
@@ -188,11 +211,15 @@ pub fn createRelic(
     allocator: Allocator,
     relicConf: Config.Relic,
     dress_avatar_id: u32,
+    slot: u32,
 ) !protocol.Relic {
     var r = protocol.Relic{
         .tid = relicConf.id,
         .main_affix_id = relicConf.main_affix_id,
-        .unique_id = if (relicConf.internal_uid != 0) relicConf.internal_uid else Uid.nextGlobalId(),
+        .unique_id = if (relicConf.internal_uid != 0)
+            relicConf.internal_uid
+        else
+            stableItemUid("RELIC", dress_avatar_id, relicConf.id, slot),
         .exp = 0,
         .dress_avatar_id = dress_avatar_id,
         .is_protected = true,
@@ -255,20 +282,68 @@ pub fn createAllMultiPath(
     for (0..TYPE_COUNT) |i| {
         var multi = protocol.MultiPathAvatarInfo.init(allocator);
         multi.avatar_id = avatar_types[i];
-        multi.rank = ranks[i];
-        multi.dressed_skin_id = getSkinId(@intCast(@intFromEnum(avatar_types[i])));
-        const cur = Uid.getCurrentGlobalId();
-        const needed = indexes[i] * 7;
-        const seed_start = if (cur > needed) cur - needed else 1;
-        var gen = Uid.UidGenerator().init(seed_start);
-        multi.path_equipment_id = gen.nextId();
-        multi.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);
 
-        for (0..6) |slot| {
-            try multi.equip_relic_list.append(.{
-                .relic_unique_id = gen.nextId(),
-                .type = @intCast(slot),
-            });
+        // 将 MultiPath 的装备/遗器 unique_id 与 GetBag/AvatarData 对齐：
+        // 1) 优先使用 freesr-data 的 internal_uid
+        // 2) 缺失时使用稳定派生 uid（不依赖全局 UID 生成顺序）
+        const t = avatar_types[i];
+        const inferred_avatar_id: u32 = if (mcIdFromMultiPath(t)) |id|
+            id
+        else switch (t) {
+            .Mar_7thKnightType => 1001,
+            .Mar_7thRogueType => 1224,
+            else => @intCast(@intFromEnum(t)),
+        };
+
+        // rank/skin
+        multi.rank = ranks[i];
+        const base_id: u32 = switch (inferred_avatar_id) {
+            8001...8008 => 8001,
+            1224 => 1001,
+            else => inferred_avatar_id,
+        };
+        multi.dressed_skin_id = getSkinId(base_id);
+
+        // find avatar config for equipment/relics
+        var avatar_conf: ?Config.Avatar = null;
+        for (game_config.avatar_config.items) |av| {
+            if (av.id == inferred_avatar_id) {
+                avatar_conf = av;
+                break;
+            }
+        }
+
+        if (avatar_conf) |av| {
+            multi.rank = av.rank;
+            multi.path_equipment_id = if (av.lightcone.id == 0)
+                0
+            else if (av.lightcone.internal_uid != 0)
+                av.lightcone.internal_uid
+            else
+                stableItemUid("LC", av.id, av.lightcone.id, 0);
+
+            multi.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);
+            const max_slots: usize = 6;
+            const count: usize = @min(max_slots, av.relics.items.len);
+            for (0..count) |slot| {
+                const rc = av.relics.items[slot];
+                const relic_uid: u32 = if (rc.id == 0)
+                    0
+                else if (rc.internal_uid != 0)
+                    rc.internal_uid
+                else
+                    stableItemUid("RELIC", av.id, rc.id, @intCast(slot));
+                try multi.equip_relic_list.append(.{ .relic_unique_id = relic_uid, .type = @intCast(slot) });
+            }
+            for (count..max_slots) |slot| {
+                try multi.equip_relic_list.append(.{ .relic_unique_id = 0, .type = @intCast(slot) });
+            }
+        } else {
+            multi.path_equipment_id = 0;
+            multi.equip_relic_list = ArrayList(protocol.EquipRelic).init(allocator);
+            for (0..6) |slot| {
+                try multi.equip_relic_list.append(.{ .relic_unique_id = 0, .type = @intCast(slot) });
+            }
         }
 
         multi.multi_path_skill_tree = ArrayList(protocol.AvatarSkillTree).init(allocator);

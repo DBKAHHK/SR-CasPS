@@ -21,10 +21,13 @@ pub fn syncItems(session: *Session, allocator: Allocator, equip_avatar: bool) !v
     const config = &ConfigManager.global_game_config_cache.game_config;
     for (config.avatar_config.items) |avatarConf| {
         const dress_avatar_id: u32 = if (equip_avatar) avatarConf.id else 0;
-        const lc = try AvatarManager.createEquipment(avatarConf.lightcone, dress_avatar_id);
-        try sync.equipment_list.append(lc);
-        for (avatarConf.relics.items) |input| {
-            const r = try AvatarManager.createRelic(allocator, input, dress_avatar_id);
+        if (avatarConf.lightcone.id != 0) {
+            const lc = try AvatarManager.createEquipment(avatarConf.lightcone, dress_avatar_id);
+            try sync.equipment_list.append(lc);
+        }
+        for (avatarConf.relics.items, 0..) |input, slot| {
+            if (input.id == 0) continue;
+            const r = try AvatarManager.createRelic(allocator, input, dress_avatar_id, @intCast(slot));
             try sync.relic_list.append(r);
         }
     }

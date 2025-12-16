@@ -2,7 +2,7 @@ const std = @import("std");
 
 const Allocator = std.mem.Allocator;
 
-pub const Position = struct { plane_id: u32, floor_id: u32, entry_id: u32 };
+pub const Position = struct { plane_id: u32, floor_id: u32, entry_id: u32, teleport_id: u32 = 0 };
 pub const Material = struct { id: u32, count: u32 };
 pub const Gender = enum { male, female };
 pub const Path = enum { warrior, knight, shaman, memory };
@@ -67,6 +67,7 @@ fn parsePosition(node: std.json.Value) Position {
         .plane_id = @intCast(pos_obj.get("plane_id").?.integer),
         .floor_id = @intCast(pos_obj.get("floor_id").?.integer),
         .entry_id = @intCast(pos_obj.get("entry_id").?.integer),
+        .teleport_id = if (pos_obj.get("teleport_id")) |v| @intCast(v.integer) else 0,
     };
 }
 fn parseGender(node: ?std.json.Value) Gender {
@@ -110,7 +111,10 @@ pub fn loadFromFile(allocator: Allocator, path: []const u8) !MiscDefaults {
     errdefer allocator.free(lineup);
     const funmode_lineup = try parseArrayU32(allocator, player_root.object.get("funmode_lineup").?);
     errdefer allocator.free(funmode_lineup);
-    const opened_chests = try parseArrayU32(allocator, player_root.object.get("opened_chests").?);
+    const opened_chests = if (player_root.object.get("opened_chests")) |v| blk: {
+        const arr = try parseArrayU32(allocator, v);
+        break :blk arr;
+    } else try allocator.alloc(u32, 0);
     errdefer allocator.free(opened_chests);
     const inventory = try parseMaterials(allocator, player_root.object.get("inventory").?);
     errdefer allocator.free(inventory);

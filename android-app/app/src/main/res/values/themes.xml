@@ -1,0 +1,10 @@
+<resources>
+    <style name="Theme.CastoricePS" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+        <item name="colorPrimary">#5A67D8</item>
+        <item name="colorPrimaryVariant">#434190</item>
+        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorSecondary">#38B2AC</item>
+        <item name="colorOnSecondary">#FFFFFF</item>
+    </style>
+</resources>
+

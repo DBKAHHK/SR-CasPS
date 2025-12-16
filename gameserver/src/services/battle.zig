@@ -6,6 +6,8 @@ const Data = @import("../data.zig");
 const BattleManager = @import("../manager/battle_mgr.zig");
 const ConfigManager = @import("../manager/config_mgr.zig");
 const Logic = @import("../utils/logic.zig");
+const SceneManager = @import("../manager/scene_mgr.zig");
+const LineupManager = @import("../manager/lineup_mgr.zig");
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
@@ -145,6 +147,106 @@ pub fn onPVEBattleResult(session: *Session, packet: *const Packet, allocator: Al
     rsp.stage_id = req.stage_id;
     on_battle = false;
     try session.send(CmdID.CmdPVEBattleResultScRsp, rsp);
+
+    // 多关卡高难度副本（MOC/PF/AS）：胜利后自动切到下一关
+    if (!Logic.Challenge().ChallengeMode()) return;
+    if (req.end_status != .BATTLE_END_WIN) return;
+
+    const challenge_id = Logic.Challenge().GetChallengeID();
+    const ids = Logic.Challenge().GetSceneIDs();
+    const cur_event_id = ids[5];
+
+    const challenge_cfg = &ConfigManager.global_game_config_cache.challenge_maze_config;
+    const entrance_cfg = &ConfigManager.global_game_config_cache.map_entrance_config;
+    const maze_cfg = &ConfigManager.global_game_config_cache.maze_config;
+
+    var next_event_id: ?u32 = null;
+    var next_monster_id: ?u32 = null;
+    var next_entry_id: ?u32 = null;
+    var next_plane_id: ?u32 = null;
+    var next_floor_id: ?u32 = null;
+    var next_world_id: ?u32 = null;
+    var next_group_id: ?u32 = null;
+    var next_maze_group_id: ?u32 = null;
+
+    for (challenge_cfg.challenge_config.items) |challengeConf| {
+        if (challengeConf.id != challenge_id) continue;
+
+        const use_first = Logic.CustomMode().FirstNode();
+        const event_list = if (use_first) challengeConf.event_id_list1.items else challengeConf.event_id_list2.items;
+        const monster_list = if (use_first) challengeConf.npc_monster_id_list1.items else challengeConf.npc_monster_id_list2.items;
+
+        if (event_list.len == 0 or monster_list.len == 0) break;
+
+        var idx: ?usize = null;
+        for (event_list, 0..) |eid, i| {
+            if (eid == cur_event_id) {
+                idx = i;
+                break;
+            }
+        }
+        if (idx == null) break;
+        const i = idx.?;
+        if (i + 1 >= event_list.len or i + 1 >= monster_list.len) break;
+
+        next_event_id = event_list[i + 1];
+        next_monster_id = monster_list[i + 1];
+
+        const entrance_id = if (use_first) challengeConf.map_entrance_id else challengeConf.map_entrance_id2;
+        const maze_group_id_opt = if (use_first) challengeConf.maze_group_id1 else challengeConf.maze_group_id2 orelse challengeConf.maze_group_id1;
+        next_group_id = maze_group_id_opt;
+        next_maze_group_id = maze_group_id_opt;
+        next_entry_id = entrance_id;
+
+        for (entrance_cfg.map_entrance_config.items) |entrance| {
+            if (entrance.id != entrance_id) continue;
+            next_floor_id = entrance.floor_id;
+            for (maze_cfg.maze_plane_config.items) |maze| {
+                if (Logic.contains(&maze.floor_id_list, entrance.floor_id)) {
+                    next_world_id = maze.world_id;
+                    next_plane_id = maze.challenge_plane_id;
+                    break;
+                }
+            }
+            break;
+        }
+        break;
+    }
+
+    if (next_event_id == null or next_monster_id == null or next_entry_id == null or next_plane_id == null or next_floor_id == null or next_world_id == null or next_group_id == null or next_maze_group_id == null) return;
+
+    Logic.Challenge().SetChallengeInfo(
+        next_floor_id.?,
+        next_world_id.?,
+        next_monster_id.?,
+        next_event_id.?,
+        next_group_id.?,
+        next_maze_group_id.?,
+        next_plane_id.?,
+        next_entry_id.?,
+    );
+
+    var lineup_manager = LineupManager.ChallengeLineupManager.init(allocator);
+    const lineup = try lineup_manager.createLineup(Logic.Challenge().GetAvatarIDs());
+    var scene_challenge_manager = SceneManager.ChallengeSceneManager.init(allocator);
+    const new_ids = Logic.Challenge().GetSceneIDs();
+    const scene_info = try scene_challenge_manager.createScene(
+        Logic.Challenge().GetAvatarIDs(),
+        new_ids[0],
+        new_ids[1],
+        new_ids[2],
+        new_ids[3],
+        new_ids[4],
+        new_ids[5],
+        new_ids[6],
+        new_ids[7],
+    );
+    try session.send(CmdID.CmdQuitBattleScNotify, protocol.QuitBattleScNotify{});
+    try session.send(CmdID.CmdEnterSceneByServerScNotify, protocol.EnterSceneByServerScNotify{
+        .reason = protocol.EnterSceneReason.ENTER_SCENE_REASON_NONE,
+        .lineup = lineup,
+        .scene = scene_info,
+    });
 }
 
 pub fn onSceneCastSkillCostMp(session: *Session, packet: *const Packet, allocator: Allocator) !void {

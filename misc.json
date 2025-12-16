@@ -8,10 +8,10 @@
     "hcoin": 0,
     "scoin": 0,
     "lineup": [
-      1415,
-      1413,
-      1407,
-      1409
+      1321,
+      1310,
+      1225,
+      8006
     ],
     "funmode_lineup": [
       1407,
@@ -69,11 +69,12 @@
       227001
     ],
     "position": {
-      "plane_id": 10001,
-      "floor_id": 1000101,
-      "entry_id": 100010101
+      "plane_id": 20422,
+      "floor_id": 20422001,
+      "entry_id": 2042201,
+      "teleport_id": 1025
     }
   },
   "mc_gender": "female",
-  "mc_path": "memory"
+  "mc_path": "shaman"
 }

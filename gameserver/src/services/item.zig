@@ -29,10 +29,13 @@ pub fn onGetBag(session: *Session, _: ?*const Packet, allocator: Allocator) !voi
     }
 
     for (config.avatar_config.items) |avatarConf| {
-        const lc = try AvatarManager.createEquipment(avatarConf.lightcone, avatarConf.id);
-        try rsp.equipment_list.append(lc);
-        for (avatarConf.relics.items) |input| {
-            const relic = try AvatarManager.createRelic(allocator, input, avatarConf.id);
+        if (avatarConf.lightcone.id != 0) {
+            const lc = try AvatarManager.createEquipment(avatarConf.lightcone, avatarConf.id);
+            try rsp.equipment_list.append(lc);
+        }
+        for (avatarConf.relics.items, 0..) |input, slot| {
+            if (input.id == 0) continue;
+            const relic = try AvatarManager.createRelic(allocator, input, avatarConf.id, @intCast(slot));
             try rsp.relic_list.append(relic);
         }
     }

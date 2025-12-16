@@ -24,6 +24,28 @@ pub const CustomStat = struct {
     value: i64,
 };
 
+fn clampU32FromJson(value: std.json.Value, default_value: u32) u32 {
+    switch (value) {
+        .integer => |iv| {
+            if (iv < 0) return default_value;
+            const max_u32: i64 = std.math.maxInt(u32);
+            if (iv > max_u32) return std.math.maxInt(u32);
+            return @intCast(iv);
+        },
+        .float => |fv| {
+            if (fv <= 0) return default_value;
+            if (fv >= @as(f64, @floatFromInt(std.math.maxInt(u32)))) return std.math.maxInt(u32);
+            return @intFromFloat(fv);
+        },
+        .string => |s| {
+            const parsed = std.fmt.parseInt(u64, s, 10) catch return default_value;
+            if (parsed > std.math.maxInt(u32)) return std.math.maxInt(u32);
+            return @intCast(parsed);
+        },
+        else => return default_value,
+    }
+}
+
 pub const SkillLevel = struct {
     point_id: u32,
     level: u32,
@@ -33,6 +55,7 @@ pub const MonsterDef = struct {
     id: u32,
     level: u32,
     amount: u32,
+    max_hp: u32 = 0,
 };
 
 pub const Lightcone = struct {
@@ -340,25 +363,38 @@ pub fn parseConfig(root: json.Value, allocator: Allocator) anyerror!GameConfig {
                 var w = ArrayList(u32).init(allocator);
                 var w_detail = ArrayList(MonsterDef).init(allocator);
 
-                for (wave.array.items) |m| {
+                const monsters = switch (wave) {
+                    .array => wave.array.items,
+                    .object => blk: {
+                        var one = [_]json.Value{wave};
+                        break :blk one[0..];
+                    },
+                    else => &[_]json.Value{},
+                };
+
+                for (monsters) |m| {
                     var mid: u32 = 0;
                     var amt: u32 = 1;
                     var lvl: u32 = 1;
+                    var max_hp: u32 = 0;
 
                     switch (m) {
                         .object => |obj| {
-                            if (obj.get("monster_id")) |v| mid = @intCast(v.integer) else if (obj.get("id")) |v| mid = @intCast(v.integer);
-                            if (obj.get("amount")) |v| amt = @intCast(v.integer);
-                            if (obj.get("level")) |v| lvl = @intCast(v.integer);
+                            if (obj.get("monster_id")) |v| mid = clampU32FromJson(v, 0) else if (obj.get("id")) |v| mid = clampU32FromJson(v, 0);
+                            if (obj.get("amount")) |v| amt = clampU32FromJson(v, 1);
+                            if (obj.get("level")) |v| lvl = clampU32FromJson(v, 1);
+                            if (obj.get("max_hp")) |v| max_hp = clampU32FromJson(v, 0);
                         },
                         .integer => |v| {
-                            mid = @intCast(v);
+                            mid = clampU32FromJson(json.Value{ .integer = v }, 0);
                         },
                         else => {},
                     }
 
+                    if (mid == 0) continue;
+
                     if (lvl > game_cfg.battle_config.monster_level) game_cfg.battle_config.monster_level = lvl;
-                    try w_detail.append(.{ .id = mid, .level = lvl, .amount = amt });
+                    try w_detail.append(.{ .id = mid, .level = lvl, .amount = amt, .max_hp = max_hp });
 
                     var i: u32 = 0;
                     while (i < amt) : (i += 1) {

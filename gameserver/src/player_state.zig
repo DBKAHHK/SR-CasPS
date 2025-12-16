@@ -10,7 +10,7 @@ const Allocator = std.mem.Allocator;
 const Inventory = InventoryMod.Inventory;
 const MaterialStack = InventoryMod.MaterialStack;
 const ArrayList = std.ArrayList;
-const Position = struct { plane_id: u32, floor_id: u32, entry_id: u32 };
+const Position = struct { plane_id: u32, floor_id: u32, entry_id: u32, teleport_id: u32 = 0 };
 
 /// 运行时玩家状态
 pub const PlayerState = struct {
@@ -35,7 +35,7 @@ pub const PlayerState = struct {
             .mcoin = 0,
             .hcoin = 0,
             .scoin = 0,
-            .position = .{ .plane_id = 0, .floor_id = 0, .entry_id = 0 },
+            .position = .{ .plane_id = 0, .floor_id = 0, .entry_id = 0, .teleport_id = 0 },
             .inventory = Inventory.init(allocator),
             .opened_chests = std.ArrayList(u32).init(allocator),
         };
@@ -123,7 +123,12 @@ pub fn loadOrCreate(allocator: Allocator, uid: u32) !PlayerState {
     s.mcoin = defaults.mcoin;
     s.hcoin = defaults.hcoin;
     s.scoin = defaults.scoin;
-    s.position = .{ .plane_id = defaults.position.plane_id, .floor_id = defaults.position.floor_id, .entry_id = defaults.position.entry_id };
+    s.position = .{
+        .plane_id = defaults.position.plane_id,
+        .floor_id = defaults.position.floor_id,
+        .entry_id = defaults.position.entry_id,
+        .teleport_id = defaults.position.teleport_id,
+    };
 
     for (defaults.inventory) |mat| {
         try s.inventory.addMaterial(mat.id, mat.count);

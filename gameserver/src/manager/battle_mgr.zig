@@ -339,12 +339,45 @@ fn createBattleInfo(allocator: Allocator, game_config: *const Config.GameConfig,
     return battle;
 }
 
-fn addMonsterWaves(allocator: Allocator, battle: *protocol.SceneBattleInfo, monster_wave_configs: std.ArrayList(std.ArrayList(u32)), monster_level: u32) !void {
-    for (monster_wave_configs.items) |wave| {
+fn addMonsterWaves(
+    allocator: Allocator,
+    battle: *protocol.SceneBattleInfo,
+    monster_wave_configs: std.ArrayList(std.ArrayList(u32)),
+    monster_wave_detail_configs: ?*const std.ArrayList(std.ArrayList(Config.MonsterDef)),
+    monster_level: u32,
+) !void {
+    for (monster_wave_configs.items, 0..) |wave, wave_idx| {
         var monster_wave = protocol.SceneMonsterWave.init(allocator);
-        monster_wave.monster_param = protocol.SceneMonsterWaveParam{ .level = monster_level };
-        for (wave.items) |mob_id| {
-            try monster_wave.monster_list.append(.{ .monster_id = mob_id, .max_hp = Logic.FunMode().GetHp() });
+
+        var wave_level = monster_level;
+        if (monster_wave_detail_configs) |details| {
+            if (wave_idx < details.items.len) {
+                for (details.items[wave_idx].items) |m| {
+                    if (m.level != 0) {
+                        wave_level = m.level;
+                        break;
+                    }
+                }
+            }
+        }
+        monster_wave.monster_param = protocol.SceneMonsterWaveParam{ .level = wave_level };
+
+        if (monster_wave_detail_configs) |details| detail_block: {
+            if (wave_idx >= details.items.len) break :detail_block;
+            const detail_wave = details.items[wave_idx];
+            if (detail_wave.items.len == 0) break :detail_block;
+
+            for (detail_wave.items) |m| {
+                const mob_hp = if (m.max_hp != 0) m.max_hp else Logic.FunMode().GetHp();
+                var i: u32 = 0;
+                while (i < m.amount) : (i += 1) {
+                    try monster_wave.monster_list.append(.{ .monster_id = m.id, .max_hp = mob_hp });
+                }
+            }
+        } else {
+            for (wave.items) |mob_id| {
+                try monster_wave.monster_list.append(.{ .monster_id = mob_id, .max_hp = Logic.FunMode().GetHp() });
+            }
         }
         try battle.monster_wave_list.append(monster_wave);
     }
@@ -410,6 +443,7 @@ fn commonBattleSetup(
     selected_avatar_ids: []const u32,
     avatar_configs: []const Config.Avatar,
     monster_wave_configs: std.ArrayList(std.ArrayList(u32)),
+    monster_wave_detail_configs: ?*const std.ArrayList(std.ArrayList(Config.MonsterDef)),
     monster_level: u32,
     stage_blessings: []const Config.Blessing,
     custom_stats: []const Config.CustomStat,
@@ -426,7 +460,7 @@ fn commonBattleSetup(
         }
     }
 
-    try addMonsterWaves(allocator, battle, monster_wave_configs, monster_level);
+    try addMonsterWaves(allocator, battle, monster_wave_configs, monster_wave_detail_configs, monster_level);
     try addTriggerAttack(allocator, battle);
     try addStageBlessings(allocator, battle, stage_blessings);
     try addGolbalPassive(allocator, battle);
@@ -455,6 +489,7 @@ pub const BattleManager = struct {
             if (!Logic.FunMode().FunMode()) selectedAvatarID.items else funmodeAvatarID.items,
             config.avatar_config.items,
             config.battle_config.monster_wave,
+            &config.battle_config.monster_wave_detail,
             config.battle_config.monster_level,
             config.battle_config.blessings.items,
             config.battle_config.custom_stats.items,
@@ -508,6 +543,7 @@ pub const ChallegeStageManager = struct {
                     if (!Logic.FunMode().FunMode()) selectedAvatarID.items else funmodeAvatarID.items,
                     config.avatar_config.items,
                     stageConf.monster_list,
+                    null,
                     stageConf.level,
                     chal_blessings.items,
                     config.battle_config.custom_stats.items,

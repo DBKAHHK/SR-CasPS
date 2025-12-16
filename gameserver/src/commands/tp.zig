@@ -63,6 +63,6 @@ pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
 
     // Update player position in save if available.
     if (session.player_state) |*state| {
-        state.position = .{ .plane_id = planeID, .floor_id = floorID, .entry_id = entry_id };
+        state.position = .{ .plane_id = planeID, .floor_id = floorID, .entry_id = entry_id, .teleport_id = 0 };
     }
 }

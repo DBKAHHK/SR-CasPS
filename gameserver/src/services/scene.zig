@@ -1,4 +1,4 @@
-const std = @import("std");
+﻿const std = @import("std");
 const protocol = @import("protocol");
 const Session = @import("../Session.zig");
 const Packet = @import("../Packet.zig");
@@ -20,7 +20,31 @@ const res_config = &ConfigManager.global_game_config_cache.res_config;
 
 pub fn onGetCurSceneInfo(session: *Session, _: *const Packet, allocator: Allocator) !void {
     var scene_manager = SceneManager.SceneManager.init(allocator);
-    const scene_info = try scene_manager.createScene(20422, 20422001, 2042201, 1025);
+
+    // 优先使用存档/默认配置里的 position，避免 position 配置“不生效”
+    var entry_id: u32 = 2042201;
+    var plane_id: u32 = 20422;
+    var floor_id: u32 = 20422001;
+
+    // 选择一个能匹配到的 teleport_id，否则角色实体不会被放入场景
+    var teleport_id: u32 = 1025;
+    if (session.player_state) |state| {
+        entry_id = state.position.entry_id;
+        plane_id = state.position.plane_id;
+        floor_id = state.position.floor_id;
+        if (state.position.teleport_id != 0) teleport_id = state.position.teleport_id;
+    }
+
+    for (res_config.scene_config.items) |sceneConf| {
+        if (sceneConf.planeID == plane_id and sceneConf.entryID == entry_id) {
+            if (sceneConf.teleports.items.len > 0) {
+                if (teleport_id == 0) teleport_id = sceneConf.teleports.items[0].teleportId;
+            }
+            break;
+        }
+    }
+
+    const scene_info = try scene_manager.createScene(plane_id, floor_id, entry_id, teleport_id);
 
     try session.send(CmdID.CmdGetCurSceneInfoScRsp, protocol.GetCurSceneInfoScRsp{
         .scene = scene_info,
@@ -47,9 +71,9 @@ pub fn onEnterScene(session: *Session, packet: *const Packet, allocator: Allocat
     const req = try packet.getProto(protocol.EnterSceneCsReq, allocator);
     defer req.deinit();
 
-    // 如果 session �?player_state，从存档强制应用最新编队到运行时（保证进入场景时使用存档值）
+    // 濡傛灉 session 鏈?player_state锛屼粠瀛樻。寮哄埗搴旂敤鏈€鏂扮紪闃熷埌杩愯鏃讹紙淇濊瘉杩涘叆鍦烘櫙鏃朵娇鐢ㄥ瓨妗ｅ€硷級
     if (session.player_state) |*state| {
-        // we ignore errors here to avoid killing the scene entry �?failure will be logged by caller
+        // we ignore errors here to avoid killing the scene entry 鈥?failure will be logged by caller
         _ = PlayerStateMod.applySavedLineup(state) catch |err| {
             std.debug.print("applySavedLineup failed: {any}\n", .{err});
         };
@@ -289,17 +313,17 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
 
     std.debug.print("InteractProp: entity_id={} interact_id={}\n", .{ req.prop_entity_id, req.interact_id });
 
-    // 不立即发送响应，先根据交互类型处理（例如宝箱打开）并在末尾发送合适的 prop_state
+    // 涓嶇珛鍗冲彂閫佸搷搴旓紝鍏堟牴鎹氦浜掔被鍨嬪鐞嗭紙渚嬪瀹濈鎵撳紑锛夊苟鍦ㄦ湯灏惧彂閫佸悎閫傜殑 prop_state
     var rsp = protocol.InteractPropScRsp.init(allocator);
     rsp.prop_entity_id = req.prop_entity_id;
     rsp.retcode = 0;
 
-    // 检查是否为宝箱交互（通过解析�?InteractConfig），若是尝试授予奖励
+    // 妫€鏌ユ槸鍚︿负瀹濈浜や簰锛堥€氳繃瑙ｆ瀽鐨?InteractConfig锛夛紝鑻ユ槸灏濊瘯鎺堜簣濂栧姳
     const interact_cfg = &ConfigManager.global_game_config_cache.interact_config;
     var is_chest_open: bool = false;
     for (interact_cfg.interact_config.items) |e| {
         if (e.interact_id == req.interact_id) {
-            // 检�?src/target 是否提到 "Chest" 并且 target �?ChestUsed �?Open
+            // 妫€鏌?src/target 鏄惁鎻愬埌 "Chest" 骞朵笖 target 涓?ChestUsed 鎴?Open
             if (e.target_state) |t| {
                 if (std.mem.indexOf(u8, t, "ChestUsed") != null or std.mem.indexOf(u8, t, "Open") != null) {
                     if (e.src_state) |s| {
@@ -308,7 +332,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
                             break;
                         }
                     } else if (std.mem.indexOf(u8, t, "Chest") != null) {
-                        // target 里包�?Chest 并且 target indicates open/used
+                        // target 閲屽寘鍚?Chest 骞朵笖 target indicates open/used
                         is_chest_open = true;
                         break;
                     }
@@ -319,9 +343,9 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
 
     var new_prop_state: u32 = 0;
     if (is_chest_open) {
-        // 如果玩家没有 player_state 不处理奖�?
+        // 濡傛灉鐜╁娌℃湁 player_state 涓嶅鐞嗗鍔?
         if (session.player_state) |*state| {
-            // 如果这个 chest 已经被打开则不重复处理
+            // 濡傛灉杩欎釜 chest 宸茬粡琚墦寮€鍒欎笉閲嶅澶勭悊
             var already: bool = false;
             for (state.opened_chests.items) |id| {
                 if (id == req.prop_entity_id) {
@@ -332,12 +356,12 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
             if (!already) {
                 // set new_prop_state to 2 (commonly used for opened/used chests in resources)
                 new_prop_state = 2;
-                // 通知客户端宝箱打开
+                // 閫氱煡瀹㈡埛绔疂绠辨墦寮€
                 
 
-                // 发放奖励并保存（grantItems 内会保存�?                
+                // 鍙戞斁濂栧姳骞朵繚瀛橈紙grantItems 鍐呬細淇濆瓨锛?                
 
-                // 记录到玩家已开宝箱并持久化
+                // 璁板綍鍒扮帺瀹跺凡寮€瀹濈骞舵寔涔呭寲
                 try state.opened_chests.append(req.prop_entity_id);
                 try PlayerStateMod.save(state);
             } else {
@@ -346,7 +370,7 @@ pub fn onInteractProp(session: *Session, packet: *const Packet, allocator: Alloc
             }
         }
     } else {
-        // not a chest open action �?leave default new_prop_state = 0
+        // not a chest open action 鈥?leave default new_prop_state = 0
     }
 
     // send scene refresh so client updates prop visuals (add_entity with updated prop_state)
