@@ -1,6 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol");
-const Session = @import("../session.zig");
+const Session = @import("../Session.zig");
 const Packet = @import("../Packet.zig");
 const MiscDefaults = @import("../data/misc_defaults.zig");
 

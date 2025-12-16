@@ -1,6 +1,6 @@
 const std = @import("std");
 const protocol = @import("protocol");
-const Session = @import("../session.zig");
+const Session = @import("../Session.zig");
 const Packet = @import("../Packet.zig");
 const Config = @import("../data/game_config.zig");
 const Res_config = @import("../data/res_config.zig");
