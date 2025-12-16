@@ -34,8 +34,3 @@ jobs:
         run: |
           echo Add other actions to build,
           echo test, and deploy your project.
-                      - name: Android Builder
-  # You may pin to the exact commit or the version.
-  # uses: b4s36t4/Android-Action@bb5c066db6ca0824ee09ee640ca222888a0c2877
-  uses: b4s36t4/Android-Action@0.0.1
-          
