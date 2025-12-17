@@ -22,7 +22,6 @@ class MainActivity : AppCompatActivity() {
 
     private var process: Process? = null
     private lateinit var workingDir: File
-    private lateinit var execDir: File
 
     private lateinit var statusText: TextView
     private lateinit var pathText: TextView
@@ -101,19 +100,6 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun ensureServerFiles() {
-        // binary -> code_cache to avoid noexec (error=13)
-        val bin = File(execDir, "CastoricePS")
-        if (!bin.exists()) {
-            appendLog("Extracting asset: CastoricePS -> ${bin.absolutePath}")
-            extractAsset("CastoricePS", bin)
-            try {
-                // Kotlin has no octal literal; 0700 == 448
-                Os.chmod(bin.absolutePath, 448)
-            } catch (t: Throwable) {
-                appendLog("chmod failed: ${t.message}")
-            }
-        }
-
         val freesr = File(workingDir, "freesr-data.json")
         if (!freesr.exists()) {
             appendLog("Extracting asset: freesr-data.json")
@@ -212,9 +198,8 @@ class MainActivity : AppCompatActivity() {
         usePublicCheck = findViewById(R.id.usePublicCheck)
 
         workingDir = File(filesDir, "castoriceps").also { it.mkdirs() }
-        execDir = File(codeCacheDir, "castoriceps-bin").also { it.mkdirs() }
         pathText.text = "Dir: ${workingDir.absolutePath}"
-        execPathText.text = "ExecDir: ${execDir.absolutePath}"
+        execPathText.text = "ExecDir: (embedded .so)"
         updatePublicPathText()
 
         findViewById<Button>(R.id.runBtn).setOnClickListener {
@@ -226,31 +211,15 @@ class MainActivity : AppCompatActivity() {
                     ensureServerFiles()
                     importConfigsFromPublicIfEnabled()
 
-                    val bin = File(execDir, "CastoricePS")
-                    val args = argsEdit.text.toString()
-                        .trim()
-                        .split(Regex("\\s+"))
-                        .filter { it.isNotBlank() }
-
-                    val cmd = mutableListOf(bin.absolutePath).apply { addAll(args) }
-                    appendLog("Starting: ${cmd.joinToString(" ")}")
-
-                    val pb = ProcessBuilder(cmd)
-                        .directory(workingDir)
-                        .redirectErrorStream(false)
-
-                    val p = pb.start()
-                    process = p
+                    // in-process: set cwd so server can find freesr-data/resources/protocol relative paths
+                    Os.chdir(workingDir.absolutePath)
+                    appendLog("Starting embedded server (cwd=${workingDir.absolutePath})")
+                    val rc = NativeBridge.start()
+                    appendLog("NativeBridge.start() => $rc")
                     setRunning(true)
-                    startReading(p.inputStream, "OUT")
-                    startReading(p.errorStream, "ERR")
-
-                    val code = p.waitFor()
-                    appendLog("Process exited with code=$code")
                 } catch (t: Throwable) {
                     appendLog("Start failed: ${t.message}")
                 } finally {
-                    process = null
                     setRunning(false)
                 }
             }
@@ -258,9 +227,9 @@ class MainActivity : AppCompatActivity() {
 
         findViewById<Button>(R.id.stopBtn).setOnClickListener {
             io.execute {
-                val p = process ?: return@execute
                 appendLog("Stopping...")
-                p.destroy()
+                val rc = NativeBridge.stop()
+                appendLog("NativeBridge.stop() => $rc")
             }
         }
 
