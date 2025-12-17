@@ -14,7 +14,10 @@ android {
         versionCode = 1
         versionName = "0.1.0"
 
-        // We run a native ELF from app storage; no JNI needed.
+        ndk {
+            // Zig workflow currently builds arm64 only.
+            abiFilters += listOf("arm64-v8a")
+        }
     }
 
     buildTypes {
@@ -36,6 +39,12 @@ android {
     }
     kotlinOptions {
         jvmTarget = "17"
+    }
+
+    sourceSets {
+        getByName("main") {
+            jniLibs.srcDirs("src/main/jniLibs")
+        }
     }
 }
 

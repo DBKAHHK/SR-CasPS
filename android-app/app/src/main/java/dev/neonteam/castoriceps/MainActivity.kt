@@ -119,6 +119,15 @@ class MainActivity : AppCompatActivity() {
                 appendLog("hotfix.json asset not found; skipping")
             }
         }
+        val so = File(workingDir, "libcastoriceps.so")
+        if (!so.exists()) {
+            try {
+                appendLog("Extracting asset: libcastoriceps.so -> ${so.absolutePath}")
+                extractAsset("libcastoriceps.so", so)
+            } catch (_: Throwable) {
+                // Prefer jniLibs packaging; asset is just a fallback.
+            }
+        }
     }
 
     private fun exportDefaultsToPublicIfMissing() {
@@ -217,6 +226,7 @@ class MainActivity : AppCompatActivity() {
                     } catch (t: Throwable) {
                         appendLog("setenv failed: ${t.message}")
                     }
+                    NativeBridge.ensureLoaded(File(workingDir, "libcastoriceps.so"))
                     val rc = NativeBridge.start()
                     appendLog("NativeBridge.start() => $rc")
                     setRunning(true)
