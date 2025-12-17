@@ -107,7 +107,8 @@ class MainActivity : AppCompatActivity() {
             appendLog("Extracting asset: CastoricePS -> ${bin.absolutePath}")
             extractAsset("CastoricePS", bin)
             try {
-                Os.chmod(bin.absolutePath, 0o700)
+                // Kotlin has no octal literal; 0700 == 448
+                Os.chmod(bin.absolutePath, 448)
             } catch (t: Throwable) {
                 appendLog("chmod failed: ${t.message}")
             }
@@ -310,4 +311,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
