@@ -8,4 +8,3 @@ object NativeBridge {
     external fun start(): Int
     external fun stop(): Int
 }
-

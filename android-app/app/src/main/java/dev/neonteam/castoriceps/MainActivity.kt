@@ -211,9 +211,12 @@ class MainActivity : AppCompatActivity() {
                     ensureServerFiles()
                     importConfigsFromPublicIfEnabled()
 
-                    // in-process: set cwd so server can find freesr-data/resources/protocol relative paths
-                    Os.chdir(workingDir.absolutePath)
-                    appendLog("Starting embedded server (cwd=${workingDir.absolutePath})")
+                    appendLog("Starting embedded server (workDir=${workingDir.absolutePath})")
+                    try {
+                        Os.setenv("CASTORICEPS_WORKDIR", workingDir.absolutePath, true)
+                    } catch (t: Throwable) {
+                        appendLog("setenv failed: ${t.message}")
+                    }
                     val rc = NativeBridge.start()
                     appendLog("NativeBridge.start() => $rc")
                     setRunning(true)
