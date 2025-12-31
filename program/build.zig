@@ -38,6 +38,22 @@ pub fn build(b: *std.Build) void {
         },
     });
 
+    // Android app embeds CastoricePS as a shared library (JNI), not an executable.
+    // Zig represents Android as `os=linux` + `abi=android`.
+    if (target.result.abi == .android) {
+        const android_lib = b.addSharedLibrary(.{
+            .name = "castoriceps",
+            .root_source_file = b.path("src/android_lib.zig"),
+            .target = target,
+            .optimize = optimize,
+        });
+        android_lib.linkLibC();
+        android_lib.root_module.addImport("dispatch_main", dispatch_mod);
+        android_lib.root_module.addImport("gameserver_main", gameserver_mod);
+        b.installArtifact(android_lib);
+        return;
+    }
+
     const exe = b.addExecutable(.{
         .name = "CastoricePS",
         .root_source_file = b.path("src/main.zig"),
