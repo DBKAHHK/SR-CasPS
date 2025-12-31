@@ -69,13 +69,57 @@ val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
     doLast {
         jniLibOutDir.mkdirs()
 
+        fun findNdkDir(): File {
+            val env = System.getenv()
+            val direct = listOf("ANDROID_NDK_HOME", "ANDROID_NDK_ROOT", "ANDROID_NDK").firstNotNullOfOrNull { k ->
+                env[k]?.takeIf { it.isNotBlank() }?.let { File(it) }
+            }
+            if (direct != null && direct.exists()) return direct
+
+            val androidHome = env["ANDROID_HOME"]?.takeIf { it.isNotBlank() }?.let { File(it) }
+                ?: env["ANDROID_SDK_ROOT"]?.takeIf { it.isNotBlank() }?.let { File(it) }
+            if (androidHome != null) {
+                val ndkRoot = File(androidHome, "ndk")
+                if (ndkRoot.isDirectory) {
+                    val candidates = ndkRoot.listFiles()?.filter { it.isDirectory }?.sortedByDescending { it.name } ?: emptyList()
+                    if (candidates.isNotEmpty()) return candidates.first()
+                }
+                val legacy = File(androidHome, "ndk-bundle")
+                if (legacy.isDirectory) return legacy
+            }
+
+            throw GradleException(
+                "Android NDK not found. Install NDK (via Android Studio SDK Manager or sdkmanager) and set ANDROID_NDK_HOME/ANDROID_NDK_ROOT.",
+            )
+        }
+
+        fun hostTag(): String {
+            val os = System.getProperty("os.name").lowercase()
+            val arch = System.getProperty("os.arch").lowercase()
+            return when {
+                os.contains("linux") -> "linux-x86_64"
+                os.contains("windows") -> "windows-x86_64"
+                os.contains("mac") || os.contains("darwin") -> if (arch.contains("aarch64") || arch.contains("arm64")) "darwin-arm64" else "darwin-x86_64"
+                else -> throw GradleException("Unsupported host OS for NDK: $os ($arch)")
+            }
+        }
+
+        val ndkDir = findNdkDir()
+        val sysroot = File(ndkDir, "toolchains/llvm/prebuilt/${hostTag()}/sysroot")
+        if (!sysroot.isDirectory) {
+            throw GradleException("NDK sysroot not found at: ${sysroot.absolutePath}")
+        }
+
         // Avoid Gradle exec/task APIs here; some CI setups compile Kotlin scripts with strict
         // settings that turn deprecations into errors and may not have Kotlin DSL extensions.
         val process = ProcessBuilder(
             "zig",
             "build",
             "-Doptimize=ReleaseFast",
-            "-Dtarget=aarch64-linux-android",
+            "-Dtarget=aarch64-linux-android.26",
+            "-Dandroid_no_libc=false",
+            "--sysroot",
+            sysroot.absolutePath,
         )
             .directory(programDir)
             .inheritIO()
