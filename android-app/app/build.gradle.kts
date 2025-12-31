@@ -109,24 +109,27 @@ val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
         if (!sysroot.isDirectory) {
             throw GradleException("NDK sysroot not found at: ${sysroot.absolutePath}")
         }
+        logger.lifecycle("Using NDK: ${ndkDir.absolutePath}")
+        logger.lifecycle("Using sysroot: ${sysroot.absolutePath}")
 
         // Avoid Gradle exec/task APIs here; some CI setups compile Kotlin scripts with strict
         // settings that turn deprecations into errors and may not have Kotlin DSL extensions.
+        val zigExe = System.getenv("ZIG_EXE")?.takeIf { it.isNotBlank() } ?: "zig"
         val process = ProcessBuilder(
-            "zig",
+            zigExe,
             "build",
+            "--sysroot",
+            sysroot.absolutePath,
             "-Doptimize=ReleaseFast",
             "-Dtarget=aarch64-linux-android.26",
             "-Dandroid_no_libc=false",
-            "--sysroot",
-            sysroot.absolutePath,
         )
             .directory(programDir)
             .inheritIO()
             .start()
         val exitCode = process.waitFor()
         if (exitCode != 0) {
-            throw GradleException("zig build failed with exit code $exitCode")
+            throw GradleException("zig build failed with exit code $exitCode (zig=$zigExe)")
         }
 
         val built = File(programDir, "zig-out/lib/libcastoriceps.so")
