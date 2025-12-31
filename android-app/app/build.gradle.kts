@@ -5,7 +5,6 @@ plugins {
 
 import java.io.File
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
-import org.gradle.api.tasks.Exec
 
 android {
     namespace = "dev.neonteam.castoriceps"
@@ -70,12 +69,21 @@ val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
     doLast {
         jniLibOutDir.mkdirs()
 
-        // Use a standalone Exec task to avoid Kotlin DSL resolution differences across Gradle setups.
-        val zigBuildTask = project.tasks.create("buildCastoricePsSoZig", Exec::class.java).apply {
-            workingDir = programDir
-            commandLine("zig", "build", "-Doptimize=ReleaseFast", "-Dtarget=aarch64-linux-android")
+        // Avoid Gradle exec/task APIs here; some CI setups compile Kotlin scripts with strict
+        // settings that turn deprecations into errors and may not have Kotlin DSL extensions.
+        val process = ProcessBuilder(
+            "zig",
+            "build",
+            "-Doptimize=ReleaseFast",
+            "-Dtarget=aarch64-linux-android",
+        )
+            .directory(programDir)
+            .inheritIO()
+            .start()
+        val exitCode = process.waitFor()
+        if (exitCode != 0) {
+            throw GradleException("zig build failed with exit code $exitCode")
         }
-        zigBuildTask.exec()
 
         val built = File(programDir, "zig-out/lib/libcastoriceps.so")
         if (!built.exists() || built.length() == 0L) {
