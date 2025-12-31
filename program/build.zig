@@ -47,7 +47,15 @@ pub fn build(b: *std.Build) void {
             .target = target,
             .optimize = optimize,
         });
-        android_lib.linkLibC();
+        // CI builds may not have Android NDK installed; keep the JNI library freestanding
+        // (no `-lc` / no bionic dependency from Zig's side).
+        android_lib.root_module.link_libc = false;
+        dispatch_mod.link_libc = false;
+        gameserver_mod.link_libc = false;
+        protocol_dep.module("protocol").link_libc = false;
+        httpz_dep.module("httpz").link_libc = false;
+        tls_dep.module("tls").link_libc = false;
+
         android_lib.root_module.addImport("dispatch_main", dispatch_mod);
         android_lib.root_module.addImport("gameserver_main", gameserver_mod);
         b.installArtifact(android_lib);
