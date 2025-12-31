@@ -5,6 +5,8 @@ plugins {
 
 import java.io.File
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+import org.gradle.api.Action
+import org.gradle.process.ExecSpec
 
 android {
     namespace = "dev.neonteam.castoriceps"
@@ -74,15 +76,15 @@ val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
 
         jniLibOutDir.mkdirs()
 
-        project.exec {
-            workingDir = programDir
-            commandLine(
+        project.exec(Action<ExecSpec> { spec ->
+            spec.workingDir = programDir
+            spec.commandLine(
                 "zig",
                 "build",
                 "-Doptimize=ReleaseFast",
                 "-Dtarget=aarch64-linux-android",
             )
-        }
+        })
 
         val built = File(programDir, "zig-out/lib/libcastoriceps.so")
         if (!built.exists() || built.length() == 0L) {
