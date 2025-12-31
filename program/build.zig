@@ -41,20 +41,30 @@ pub fn build(b: *std.Build) void {
     // Android app embeds CastoricePS as a shared library (JNI), not an executable.
     // Zig represents Android as `os=linux` + `abi=android`.
     if (target.result.abi == .android) {
+        const android_no_libc = b.option(bool, "android_no_libc", "Build Android JNI .so without linking libc (not runnable; CI-only)") orelse false;
         const android_lib = b.addSharedLibrary(.{
             .name = "castoriceps",
             .root_source_file = b.path("src/android_lib.zig"),
             .target = target,
             .optimize = optimize,
         });
-        // CI builds may not have Android NDK installed; keep the JNI library freestanding
-        // (no `-lc` / no bionic dependency from Zig's side).
-        android_lib.root_module.link_libc = false;
-        dispatch_mod.link_libc = false;
-        gameserver_mod.link_libc = false;
-        protocol_dep.module("protocol").link_libc = false;
-        httpz_dep.module("httpz").link_libc = false;
-        tls_dep.module("tls").link_libc = false;
+        // Default: link bionic libc (requires NDK sysroot). If we don't link libc,
+        // Android's loader cannot resolve libc symbols unless they are in DT_NEEDED.
+        if (android_no_libc) {
+            android_lib.root_module.link_libc = false;
+            dispatch_mod.link_libc = false;
+            gameserver_mod.link_libc = false;
+            protocol_dep.module("protocol").link_libc = false;
+            httpz_dep.module("httpz").link_libc = false;
+            tls_dep.module("tls").link_libc = false;
+        } else {
+            android_lib.root_module.link_libc = true;
+            dispatch_mod.link_libc = true;
+            gameserver_mod.link_libc = true;
+            protocol_dep.module("protocol").link_libc = true;
+            httpz_dep.module("httpz").link_libc = true;
+            tls_dep.module("tls").link_libc = true;
+        }
 
         android_lib.root_module.addImport("dispatch_main", dispatch_mod);
         android_lib.root_module.addImport("gameserver_main", gameserver_mod);
