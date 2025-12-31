@@ -1,4 +1,3 @@
-
 {
     "CNBETAWin3.7.51": {
         "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12579793_48327ff319b5_1b794dd1071e3a",
@@ -79,7 +78,7 @@
         "ifix_version": "0",
         "lua_url": "https://autopatchcn.bhsr.com/lua/BetaLive/output_12767200_40d19987b596_dbe466d6b2a94a",
         "lua_version": ""
-    },    
+    },
     "CNBETAAndroid3.7.53": {
         "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/BetaLive/output_12780782_5b2a53fa06e0_a3638534913d5f",
         "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/BetaLive/output_12780782_84f9f677c892_ce4a000dc6b55a",
@@ -127,5 +126,21 @@
         "ifix_version": "0",
         "lua_url": "https://autopatchos.bhsr.com/lua/BetaLive/output_12944321_7bf449a4c967_0c3afa2751a707",
         "lua_version": ""
-    }
+    },
+    "OSPRODWin3.8.0": {
+        "asset_bundle_url": "https://autopatchos.starrails.com/asb/V3.8Live/output_13319540_98e04d64ec9a_ac20fd9bce7690",
+        "ex_resource_url": "https://autopatchos.starrails.com/design_data/V3.8Live/output_13319540_92a29f827f57_947ee93ccddbcc",
+        "ifix_url": "https://autopatchos.starrails.com/ifix/V3.8Live/output_13319540_ad152a730955_35ade0fa79ef6b",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchos.starrails.com/lua/V3.8Live/output_13140541_b67fff8d3856_d3f7e8f25c4f28",
+        "lua_version": ""
+    },
+    "CNPRODWin3.8.0": {
+        "asset_bundle_url": "https://autopatchcn.bhsr.com/asb/V3.8Live/output_13040595_9e9bd95c56a5_b73e4b4b12fbc2",
+        "ex_resource_url": "https://autopatchcn.bhsr.com/design_data/V3.8Live/output_13204344_748609436fa3_46e524d0783de5",
+        "ifix_url": "https://autopatchcn.bhsr.com/ifix/V3.8Live/output_13140927_1d93c21ac1a0_9ccdd666f30010",
+        "ifix_version": "0",
+        "lua_url": "https://autopatchcn.bhsr.com/lua/V3.8Live/output_13140541_b67fff8d3856_b6b1f085756c4d",
+        "lua_version": ""
+   }
 }

@@ -20,7 +20,6 @@ class MainActivity : AppCompatActivity() {
     private val io = Executors.newSingleThreadExecutor()
     private val prefs by lazy { getSharedPreferences("castoriceps", MODE_PRIVATE) }
 
-    private var process: Process? = null
     private lateinit var workingDir: File
 
     private lateinit var statusText: TextView
@@ -119,15 +118,6 @@ class MainActivity : AppCompatActivity() {
                 appendLog("hotfix.json asset not found; skipping")
             }
         }
-        val so = File(workingDir, "libcastoriceps.so")
-        if (!so.exists()) {
-            try {
-                appendLog("Extracting asset: libcastoriceps.so -> ${so.absolutePath}")
-                extractAsset("libcastoriceps.so", so)
-            } catch (_: Throwable) {
-                // Prefer jniLibs packaging; asset is just a fallback.
-            }
-        }
     }
 
     private fun exportDefaultsToPublicIfMissing() {
@@ -208,11 +198,10 @@ class MainActivity : AppCompatActivity() {
 
         workingDir = File(filesDir, "castoriceps").also { it.mkdirs() }
         pathText.text = "Dir: ${workingDir.absolutePath}"
-        execPathText.text = "ExecDir: (embedded .so)"
+        execPathText.text = "Exec: System.loadLibrary(\"castoriceps\")"
         updatePublicPathText()
 
         findViewById<Button>(R.id.runBtn).setOnClickListener {
-            if (process != null) return@setOnClickListener
             if (showPopupCheck.isChecked) showStartupPopup()
 
             io.execute {
@@ -226,14 +215,19 @@ class MainActivity : AppCompatActivity() {
                     } catch (t: Throwable) {
                         appendLog("setenv failed: ${t.message}")
                     }
-                    NativeBridge.ensureLoaded(File(workingDir, "libcastoriceps.so"))
+                    NativeBridge.ensureLoaded()
                     val rc = NativeBridge.start()
                     appendLog("NativeBridge.start() => $rc")
-                    setRunning(true)
+                    if (rc == 0 || rc == 1) {
+                        // 0: started; 1: already running
+                        setRunning(true)
+                    } else {
+                        setRunning(false)
+                    }
                 } catch (t: Throwable) {
                     appendLog("Start failed: ${t.message}")
-                } finally {
                     setRunning(false)
+                } finally {
                 }
             }
         }
@@ -243,15 +237,12 @@ class MainActivity : AppCompatActivity() {
                 appendLog("Stopping...")
                 val rc = NativeBridge.stop()
                 appendLog("NativeBridge.stop() => $rc")
+                setRunning(false)
             }
         }
 
         findViewById<Button>(R.id.resetBtn).setOnClickListener {
             io.execute {
-                if (process != null) {
-                    appendLog("Server is running; stop it before reset.")
-                    return@execute
-                }
                 appendLog("Resetting server data in ${workingDir.absolutePath}")
                 deleteRecursively(workingDir)
                 workingDir.mkdirs()

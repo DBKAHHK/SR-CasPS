@@ -3,6 +3,8 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+import java.io.File
+
 android {
     namespace = "dev.neonteam.castoriceps"
     compileSdk = 34
@@ -46,6 +48,50 @@ android {
             jniLibs.srcDirs("src/main/jniLibs")
         }
     }
+}
+
+val repoRoot = rootProject.projectDir.parentFile
+val programDir = File(repoRoot, "program")
+val jniLibOutDir = File(projectDir, "src/main/jniLibs/arm64-v8a")
+val jniLibOut = File(jniLibOutDir, "libcastoriceps.so")
+
+val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
+    group = "build"
+    description = "Builds libcastoriceps.so via Zig and copies it into src/main/jniLibs/arm64-v8a."
+
+    inputs.dir(programDir)
+    outputs.file(jniLibOut)
+
+    doLast {
+        if (jniLibOut.exists() && jniLibOut.length() > 0) {
+            logger.lifecycle("Using existing JNI lib: ${jniLibOut.absolutePath}")
+            return@doLast
+        }
+
+        jniLibOutDir.mkdirs()
+
+        exec {
+            workingDir = programDir
+            commandLine(
+                "zig",
+                "build",
+                "-Doptimize=ReleaseFast",
+                "-Dtarget=aarch64-linux-android.26",
+            )
+        }
+
+        val built = File(programDir, "zig-out/lib/libcastoriceps.so")
+        if (!built.exists() || built.length() == 0L) {
+            throw GradleException("Zig build did not produce ${built.absolutePath}")
+        }
+        built.copyTo(jniLibOut, overwrite = true)
+        logger.lifecycle("Copied JNI lib to: ${jniLibOut.absolutePath}")
+    }
+}
+
+// Make sure the embedded server is packaged in the APK.
+tasks.matching { it.name == "preBuild" }.configureEach {
+    dependsOn(buildCastoricePsSo)
 }
 
 dependencies {

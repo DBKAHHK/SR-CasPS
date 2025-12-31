@@ -8,7 +8,7 @@
 
 ## 主要特性
 - 配置分离：
-  - `freesr-data.json`：角色/光锥/遗器/战斗等（srtools 写入）
+  - `freesr-data.json`：角色/光锥/遗器/战斗等
   - `misc.json`：默认背包/阵容/出生位置等偏好
 - srtools 接入：`/srtools` 支持浏览器 CORS（可直接从网页保存）
 - 更多的指令支持
@@ -17,6 +17,7 @@
 建议把以下文件放在同一目录：
 ```
 CastoricePS.exe          # 主程序
+firefly-proxy.exe        # （可选）内置 Go 代理
 freesr-data.json         # 角色配置文件
 misc.json                # 杂项配置文件
 hotfix.json              # 热修复文件
@@ -61,7 +62,27 @@ protocol/                # 协议文件
 
 ## 开发提示
 - srtools 网页保存的数据会写入根目录 `freesr-data.json`，服务器侧会在 `/sync` 时重新加载（但其实你不重载也没事）
-- 如果你频繁 `zig build` 提示 `AccessDenied`，通常是 `CastoricePS.exe` 正在运行占用文件，先退出进程再构建
+- 如果你需要更多的参考，请关注 `resources/` 目录。可以通过修改Resources的方式来修改buff和技能效果。
+
+## 内置代理（firefly-go-proxy）
+默认启动 `CastoricePS.exe` 时会尝试自动拉起同目录下的 `firefly-proxy.exe`，用于把游戏请求重定向到本地（默认 `127.0.0.1:21000`）。
+
+- 禁用自动拉起：设置环境变量 `CASTORICEPS_NO_PROXY=1`
+- 修改重定向目标：设置环境变量 `CASTORICEPS_PROXY_REDIRECT=127.0.0.1:21000`
+- 也可以在 `CastoricePS-settings.json` 里设置 `"disable_proxy": true` 来手动关闭自动拉起（同时会禁用自动启动游戏）
+
+## 游戏路径选择与一键启动（Windows）
+启动 `CastoricePS.exe` 时会尝试启动游戏；如果没有指定路径，会弹出文件选择对话框让你选择 `StarRail.exe`。
+
+- 会把上次选择写入运行目录的 `CastoricePS-settings.json`，下次优先使用
+- 如果游戏本体需要管理员权限，启动时会正常弹出 UAC 让用户确认（`CastoricePS.exe` 本身不需要管理员）
+
+相关环境变量：
+- `CASTORICEPS_NO_GAME_LAUNCH=1`：完全禁用自动启动游戏
+- `CASTORICEPS_GAME_PATH=D:\\Path\\To\\StarRail.exe`：指定游戏路径（最高优先级）
+- `CASTORICEPS_FORCE_GAME_PICK=1`：强制弹出文件选择器（忽略上次选择）
 ## 贡献
-欢迎提交PR和Issue.感谢Reversed Rooms (discord.gg/reversedrooms)，以及他们的开源服务器:  
+欢迎提交PR和Issue.
+感谢Reversed Rooms (discord.gg/reversedrooms)，以及他们的开源服务器:  
 https://git.xeondev.com/HonkaiSlopRail/dahlia-sr-0.14.1
+感谢Kain和FirefiyGo开发的代理服务器: https://git.kain.io.vn/Firefly-Shelter/FireflyGo_Proxy
