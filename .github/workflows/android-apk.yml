@@ -40,15 +40,9 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
 
-      - name: Build Android ELF (aarch64)
-        run: |
-          zig version
-          zig build -Dtarget=aarch64-linux-android -Doptimize=ReleaseSafe
-
       - name: Prepare app assets
         run: |
           mkdir -p android-app/app/src/main/assets
-          cp zig-out/bin/CastoricePS android-app/app/src/main/assets/CastoricePS
           cp freesr-data.json android-app/app/src/main/assets/freesr-data.json
           cp misc.json android-app/app/src/main/assets/misc.json
           cp hotfix.json android-app/app/src/main/assets/hotfix.json
@@ -62,4 +56,3 @@ jobs:
         with:
           name: CastoricePS-android-debug-apk
           path: android-app/app/build/outputs/apk/debug/app-debug.apk
-
