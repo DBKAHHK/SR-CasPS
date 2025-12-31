@@ -19,6 +19,7 @@ closed: bool = false,
 allocator: Allocator,
 main_allocator: Allocator,
 game_config_cache: *ConfigManager.GameConfigCache,
+pending_lua_script: ?[]u8 = null,
 
 pub fn init(
     address: Address,
@@ -35,6 +36,7 @@ pub fn init(
         .game_config_cache = game_config_cache,
         .player_state = null,
         .closed = false,
+        .pending_lua_script = null,
     };
 }
 
@@ -51,6 +53,10 @@ pub fn run(self: *Self) !void {
             state.deinit();
             self.player_state = null;
         }
+        if (self.pending_lua_script) |buf| {
+            self.allocator.free(buf);
+            self.pending_lua_script = null;
+        }
     }
 
     var reader = self.stream.reader();
@@ -59,6 +65,17 @@ pub fn run(self: *Self) !void {
         defer packet.deinit();
         try handlers.handle(self, &packet);
     }
+}
+
+pub fn setPendingLuaScript(self: *Self, buf: []u8) void {
+    if (self.pending_lua_script) |old| self.allocator.free(old);
+    self.pending_lua_script = buf;
+}
+
+pub fn takePendingLuaScript(self: *Self) ?[]u8 {
+    const buf = self.pending_lua_script orelse return null;
+    self.pending_lua_script = null;
+    return buf;
 }
 
 pub fn send(self: *Self, cmd_id: protocol.CmdID, proto: anytype) !void {

@@ -8,14 +8,30 @@ const LineupManager = @import("../manager/lineup_mgr.zig");
 const ChallengeManager = @import("../manager/challenge_mgr.zig");
 const ConfigManager = @import("../manager/config_mgr.zig");
 const Logic = @import("../utils/logic.zig");
+const AvatarManager = @import("../manager/avatar_mgr.zig");
 
 const ArrayList = std.ArrayList;
 const Allocator = std.mem.Allocator;
 const CmdID = protocol.CmdID;
 
+comptime {
+    if (@intFromEnum(CmdID.CmdEnterChallengeNextPhaseCsReq) != 1746) @compileError("CmdID mismatch: CmdEnterChallengeNextPhaseCsReq must be 1746");
+    if (@intFromEnum(CmdID.CmdEnterChallengeNextPhaseScRsp) != 1792) @compileError("CmdID mismatch: CmdEnterChallengeNextPhaseScRsp must be 1792");
+    if (@intFromEnum(CmdID.CmdChallengeBossPhaseSettleNotify) != 1714) @compileError("CmdID mismatch: CmdChallengeBossPhaseSettleNotify must be 1714");
+    if (@intFromEnum(CmdID.CmdChallengeSettleNotify) != 1789) @compileError("CmdID mismatch: CmdChallengeSettleNotify must be 1789");
+}
+
 const challenge_config = &ConfigManager.global_game_config_cache.challenge_maze_config;
 const peak_group = &ConfigManager.global_game_config_cache.challenge_peak_group_config;
 const peak_boss = &ConfigManager.global_game_config_cache.challenge_peak_boss_config;
+
+fn challengeHasSecondHalf(challenge_id: u32) bool {
+    for (challenge_config.challenge_config.items) |c| {
+        if (c.id != challenge_id) continue;
+        return c.event_id_list2.items.len != 0 and c.npc_monster_id_list2.items.len != 0 and c.maze_group_id2 != null;
+    }
+    return false;
+}
 
 pub fn onGetChallenge(session: *Session, _: *const Packet, allocator: Allocator) !void {
     var rsp = protocol.GetChallengeScRsp.init(allocator);
@@ -127,29 +143,63 @@ pub fn onStartChallenge(session: *Session, packet: *const Packet, allocator: All
     const req = try packet.getProto(protocol.StartChallengeCsReq, allocator);
     defer req.deinit();
     var rsp = protocol.StartChallengeScRsp.init(allocator);
+
+    const has_second_half_cfg = challengeHasSecondHalf(req.challenge_id);
+    const first_slice = req.first_lineup.items;
+    const second_slice = req.second_lineup.items;
+
+    // Strict: never auto-fill or fallback. Client must provide the selected teams.
+    if (first_slice.len == 0) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdStartChallengeScRsp, rsp);
+        return;
+    }
+    if (!Logic.CustomMode().FirstNode() and !has_second_half_cfg) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdStartChallengeScRsp, rsp);
+        return;
+    }
+    if (has_second_half_cfg and second_slice.len == 0) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdStartChallengeScRsp, rsp);
+        return;
+    }
+
+    try Logic.Challenge().SetChallengeLineups(first_slice, second_slice);
+
+    var buff_one: u32 = 0;
+    var buff_two: u32 = 0;
+    if (req.stage_info) |stage| {
+        if (stage.MLNEDDHOJGC) |union_val| {
+            switch (union_val) {
+                .story_info => |info| {
+                    buff_one = info.buff_one;
+                    buff_two = info.buff_two;
+                },
+                .boss_info => |info| {
+                    buff_one = info.buff_one;
+                    buff_two = info.buff_two;
+                },
+            }
+        }
+    }
+    Logic.Challenge().SetChallengeBuffs(buff_one, buff_two);
+
     if (Logic.CustomMode().CustomMode()) {
         Logic.Challenge().SetChallengeID(Logic.CustomMode().GetCustomChallengeID());
         Logic.Challenge().SetChallengeBuffID(Logic.CustomMode().GetCustomBuffID());
-        if (Logic.CustomMode().FirstNode()) {
-            try Logic.Challenge().AddAvatar(req.first_lineup.items);
-        } else {
-            try Logic.Challenge().AddAvatar(req.second_lineup.items);
-        }
     } else {
         Logic.Challenge().SetChallengeID(req.challenge_id);
-        if (Logic.CustomMode().FirstNode()) {
-            try Logic.Challenge().AddAvatar(req.first_lineup.items);
-            if (Logic.Challenge().GameModePF())
-                Logic.Challenge().SetChallengeBuffID(req.stage_info.?.MLNEDDHOJGC.?.story_info.buff_one);
-            if (Logic.Challenge().GameModeAS())
-                Logic.Challenge().SetChallengeBuffID(req.stage_info.?.MLNEDDHOJGC.?.boss_info.buff_one);
-        } else {
-            try Logic.Challenge().AddAvatar(req.second_lineup.items);
-            if (Logic.Challenge().GameModePF())
-                Logic.Challenge().SetChallengeBuffID(req.stage_info.?.MLNEDDHOJGC.?.story_info.buff_two);
-            if (Logic.Challenge().GameModeAS())
-                Logic.Challenge().SetChallengeBuffID(req.stage_info.?.MLNEDDHOJGC.?.boss_info.buff_two);
-        }
+        const active_buff = if (Logic.CustomMode().FirstNode()) buff_one else buff_two;
+        Logic.Challenge().SetChallengeBuffID(active_buff);
+    }
+
+    // Pick which half to enter based on current `/node` selection.
+    if (Logic.CustomMode().FirstNode()) {
+        try Logic.Challenge().UseFirstLineup();
+    } else {
+        try Logic.Challenge().UseSecondLineup();
+        Logic.Challenge().SetChallengeBuffID(Logic.Challenge().GetChallengeBuffTwo());
     }
     var lineup_manager = LineupManager.ChallengeLineupManager.init(allocator);
     var lineup_info = try lineup_manager.createLineup(Logic.Challenge().GetAvatarIDs());
@@ -202,6 +252,110 @@ pub fn onStartChallenge(session: *Session, packet: *const Packet, allocator: All
             }
         }
     }
+}
+
+pub fn onEnterChallengeNextPhase(session: *Session, packet: *const Packet, allocator: Allocator) !void {
+    const req = try packet.getProto(protocol.EnterChallengeNextPhaseCsReq, allocator);
+    defer req.deinit();
+
+    var rsp = protocol.EnterChallengeNextPhaseScRsp.init(allocator);
+    rsp.retcode = 0;
+
+    if (!Logic.Challenge().ChallengeMode()) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdEnterChallengeNextPhaseScRsp, rsp);
+        return;
+    }
+
+    if (!challengeHasSecondHalf(Logic.Challenge().GetChallengeID())) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdEnterChallengeNextPhaseScRsp, rsp);
+        return;
+    }
+
+    // Already in 2nd half: just resend current scene snapshot.
+    if (Logic.Challenge().InSecondHalf()) {
+        var scene_challenge_manager = SceneManager.ChallengeSceneManager.init(allocator);
+        const ids = Logic.Challenge().GetSceneIDs();
+        const scene_info = try scene_challenge_manager.createScene(
+            Logic.Challenge().GetAvatarIDs(),
+            ids[0],
+            ids[1],
+            ids[2],
+            ids[3],
+            ids[4],
+            ids[5],
+            ids[6],
+            ids[7],
+        );
+        rsp.scene = scene_info;
+        try session.send(CmdID.CmdEnterChallengeNextPhaseScRsp, rsp);
+        return;
+    }
+
+    // Switch to 2nd half.
+    Logic.CustomMode().SelectCustomNode(2);
+    if (!Logic.Challenge().HasSecondLineup()) {
+        rsp.retcode = 1;
+        try session.send(CmdID.CmdEnterChallengeNextPhaseScRsp, rsp);
+        return;
+    }
+    try Logic.Challenge().UseSecondLineup();
+    Logic.Challenge().SetChallengeBuffID(Logic.Challenge().GetChallengeBuffTwo());
+
+    var lineup_manager = LineupManager.ChallengeLineupManager.init(allocator);
+    const lineup_info = try lineup_manager.createLineup(Logic.Challenge().GetAvatarIDs());
+
+    var challenge_manager = ChallengeManager.ChallengeManager.init(allocator);
+    var cur_challenge_info = try challenge_manager.createChallenge(
+        Logic.Challenge().GetChallengeID(),
+        Logic.Challenge().GetChallengeBuffID(),
+    );
+    _ = &cur_challenge_info;
+
+    const ids = Logic.Challenge().GetSceneIDs();
+    var scene_challenge_manager = SceneManager.ChallengeSceneManager.init(allocator);
+    const scene_info = try scene_challenge_manager.createScene(
+        Logic.Challenge().GetAvatarIDs(),
+        ids[0],
+        ids[1],
+        ids[2],
+        ids[3],
+        ids[4],
+        ids[5],
+        ids[6],
+        ids[7],
+    );
+
+    try session.send(CmdID.CmdChallengeLineupNotify, protocol.ChallengeLineupNotify{
+        .extra_lineup_type = protocol.ExtraLineupType.LINEUP_CHALLENGE_2,
+    });
+
+    rsp.scene = scene_info;
+    try session.send(CmdID.CmdEnterChallengeNextPhaseScRsp, rsp);
+
+    const anchor_motion = SceneManager.ChallengeSceneManager.getAnchorMotion(scene_info.entry_id);
+    if (anchor_motion) |motion| {
+        for (scene_info.entity_group_list.items) |*group| {
+            for (group.entity_list.items) |*entity| {
+                if (entity.entity) |ent| if (ent == .actor) {
+                    try session.send(
+                        CmdID.CmdSceneEntityMoveScNotify,
+                        protocol.SceneEntityMoveScNotify{
+                            .entity_id = entity.entity_id,
+                            .entry_id = scene_info.entry_id,
+                            .motion = motion,
+                        },
+                    );
+                };
+            }
+        }
+    }
+
+    // Also send current lineup snapshot to ensure client refreshes.
+    var sync_notify = protocol.SyncLineupNotify.init(allocator);
+    sync_notify.lineup = lineup_info;
+    try session.send(CmdID.CmdSyncLineupNotify, sync_notify);
 }
 pub fn onTakeChallengeReward(session: *Session, packet: *const Packet, allocator: Allocator) !void {
     const req = try packet.getProto(protocol.TakeChallengeRewardCsReq, allocator);
@@ -299,6 +453,8 @@ pub fn onStartChallengePeak(session: *Session, packet: *const Packet, allocator:
     defer req.deinit();
     var rsp = protocol.StartChallengePeakScRsp.init(allocator);
     rsp.retcode = 0;
+    Logic.Challenge().SetChallengePeakActive(true);
+    Logic.Challenge().SetChallengePeakID(req.peak_id);
     if (req.peak_avatar_id_list.items.len != 0) {
         Logic.Challenge().SetPeakBoss(true);
         try Logic.Challenge().AddAvatar(req.peak_avatar_id_list.items);
@@ -352,6 +508,16 @@ pub fn onStartChallengePeak(session: *Session, packet: *const Packet, allocator:
         }
     }
     try session.send(CmdID.CmdStartChallengePeakScRsp, rsp);
+}
+
+pub fn onConfirmChallengePeakSettle(session: *Session, packet: *const Packet, allocator: Allocator) !void {
+    const req = try packet.getProto(protocol.ConfirmChallengePeakSettleCsReq, allocator);
+    defer req.deinit();
+    var rsp = protocol.ConfirmChallengePeakSettleScRsp.init(allocator);
+    rsp.retcode = 0;
+    rsp.peak_id = req.peak_id;
+    rsp.OJGBBNMJHOM = req.OJGBBNMJHOM;
+    try session.send(CmdID.CmdConfirmChallengePeakSettleScRsp, rsp);
 }
 pub fn onSetChallengePeakBossHardMode(session: *Session, packet: *const Packet, allocator: Allocator) !void {
     const req = try packet.getProto(protocol.SetChallengePeakBossHardModeCsReq, allocator);

@@ -70,23 +70,6 @@ pub fn onPlayerLoginFinish(session: *Session, _: *const Packet, allocator: Alloc
     try session.send(CmdID.CmdPlayerLoginFinishScRsp, protocol.PlayerLoginFinishScRsp{
         .retcode = 0,
     });
-
-    // 紧急提示：登录完成后推送一次服务器公告/弹窗
-    const emergency_msg =
-        \\紧急提示：本服务器完全免费。
-        \\加入 Discord.gg/dyn9NjBwzZ 获取更多信息。
-        \\通过 https://srtools.neonteam.dev/ 修改角色与战斗配置。
-    ;
-
-    var announce = protocol.ServerAnnounceNotify.init(allocator);
-    try announce.announce_data_list.append(.{
-        .config_id = 1,
-        .begin_time = 0,
-        .end_time = 0,
-        .has_recommand = true,
-        .emergency_text = .{ .Const = emergency_msg },
-    });
-    try session.send(CmdID.CmdServerAnnounceNotify, announce);
 }
 
 pub fn onContentPackageGetData(session: *Session, _: *const Packet, allocator: Allocator) !void {

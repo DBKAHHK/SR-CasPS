@@ -11,6 +11,11 @@ const Inventory = InventoryMod.Inventory;
 const MaterialStack = InventoryMod.MaterialStack;
 const ArrayList = std.ArrayList;
 const Position = struct { plane_id: u32, floor_id: u32, entry_id: u32, teleport_id: u32 = 0 };
+const LineupManager = @import("./manager/lineup_mgr.zig");
+
+pub const LineupSlots: usize = 4;
+pub const MaxLineups: usize = 6;
+pub const LineupPreset = [LineupSlots]u32;
 
 /// 运行时玩家状态
 pub const PlayerState = struct {
@@ -25,6 +30,8 @@ pub const PlayerState = struct {
 
     inventory: Inventory,
     opened_chests: std.ArrayList(u32),
+    cur_lineup_index: u32,
+    lineups: [MaxLineups]LineupPreset,
 
     pub fn init(allocator: Allocator, uid: u32) PlayerState {
         return .{
@@ -38,6 +45,8 @@ pub const PlayerState = struct {
             .position = .{ .plane_id = 0, .floor_id = 0, .entry_id = 0, .teleport_id = 0 },
             .inventory = Inventory.init(allocator),
             .opened_chests = std.ArrayList(u32).init(allocator),
+            .cur_lineup_index = 0,
+            .lineups = std.mem.zeroes([MaxLineups]LineupPreset),
         };
     }
 
@@ -61,6 +70,9 @@ const PlayerStateFile = struct {
     selected_lineup: ?[]u32 = null,
     // saved funmode lineup - optional
     funmode_lineup: ?[]u32 = null,
+    // multi-lineup presets (optional)
+    cur_lineup_index: ?u32 = null,
+    lineups: ?[][]u32 = null,
     // already opened prop entity ids (persistent)
     opened_chests: ?[]u32 = null,
     position: ?Position = null,
@@ -90,7 +102,10 @@ pub fn save(state: *PlayerState) !void {
             .mcoin = state.mcoin,
             .hcoin = state.hcoin,
             .scoin = state.scoin,
-            .lineup = BattleManager.selectedAvatarID.items,
+            // keep legacy `lineup` for backward compatibility
+            .lineup = state.lineups[@intCast(state.cur_lineup_index)],
+            .cur_lineup_index = state.cur_lineup_index,
+            .lineups = state.lineups,
             .funmode_lineup = BattleManager.funmodeAvatarID.items,
             .opened_chests = state.opened_chests.items,
             .inventory = state.inventory.materials.items,
@@ -136,8 +151,67 @@ pub fn loadOrCreate(allocator: Allocator, uid: u32) !PlayerState {
 
     BattleManager.funmodeAvatarID.clearRetainingCapacity();
     try BattleManager.funmodeAvatarID.appendSlice(defaults.funmode_lineup);
-    BattleManager.selectedAvatarID.clearRetainingCapacity();
-    try BattleManager.selectedAvatarID.appendSlice(defaults.lineup);
+    // Initialize lineup presets from defaults (lineup0) and attempt to override from misc.json.
+    for (s.lineups[0][0..], 0..) |*slot, i| {
+        slot.* = if (i < defaults.lineup.len) defaults.lineup[i] else 0;
+    }
+    for (s.lineups[1..]) |*preset| preset.* = std.mem.zeroes(LineupPreset);
+    s.cur_lineup_index = 0;
+
+    // Best-effort: load `player.lineups` + `player.cur_lineup_index` from misc.json if present.
+    if (std.fs.cwd().openFile("misc.json", .{})) |file| {
+        defer file.close();
+        const file_size = file.getEndPos() catch 0;
+        if (file_size > 0) {
+            const buffer = file.readToEndAlloc(allocator, file_size) catch null;
+            if (buffer) |buf| {
+                defer allocator.free(buf);
+                var json_tree = std.json.parseFromSlice(std.json.Value, allocator, buf, .{}) catch null;
+                if (json_tree) |*tree| {
+                    defer tree.deinit();
+                    const root = tree.value;
+                    if (root == .object) {
+                        if (root.object.get("player")) |player_node| {
+                            if (player_node == .object) {
+                                if (player_node.object.get("cur_lineup_index")) |idx_node| {
+                                    if (idx_node == .integer) {
+                                        const idx: u32 = @intCast(idx_node.integer);
+                                        if (idx < MaxLineups) s.cur_lineup_index = idx;
+                                    }
+                                }
+                                if (player_node.object.get("lineups")) |lineups_node| {
+                                    if (lineups_node == .array) {
+                                        const count = @min(MaxLineups, lineups_node.array.items.len);
+                                        var i: usize = 0;
+                                        while (i < count) : (i += 1) {
+                                            const preset_node = lineups_node.array.items[i];
+                                            if (preset_node != .array) continue;
+                                            const slots = @min(LineupSlots, preset_node.array.items.len);
+                                            var j: usize = 0;
+                                            while (j < slots) : (j += 1) {
+                                                const v = preset_node.array.items[j];
+                                                if (v == .integer) s.lineups[i][j] = @intCast(v.integer);
+                                            }
+                                            // Fill missing with 0
+                                            while (j < LineupSlots) : (j += 1) s.lineups[i][j] = 0;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    } else |_| {}
+
+    // Apply current preset to runtime selected lineup (skip zeros).
+    var ids = std.ArrayList(u32).init(allocator);
+    defer ids.deinit();
+    for (s.lineups[@intCast(s.cur_lineup_index)]) |id| {
+        if (id != 0) try ids.append(id);
+    }
+    try LineupManager.getSelectedAvatarID(allocator, ids.items);
 
     try s.opened_chests.appendSlice(defaults.opened_chests);
 

@@ -79,7 +79,7 @@ fn createBattleAvatar(allocator: Allocator, avatarConf: Config.Avatar, custom_st
     var avatar = protocol.BattleAvatar.init(allocator);
     avatar.id = avatarConf.id;
     avatar.hp = avatarConf.hp * 100;
-    avatar.sp_bar = .{ .cur_sp = avatarConf.sp * 100, .max_sp = 10000 };
+    avatar.sp_bar = .{ .cur_sp = avatarConf.sp * 100, .max_sp = avatarConf.sp_max * 100 };
     avatar.level = avatarConf.level;
     avatar.rank = avatarConf.rank;
     avatar.promotion = avatarConf.promotion;

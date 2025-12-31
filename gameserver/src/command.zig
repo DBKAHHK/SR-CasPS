@@ -13,6 +13,14 @@ const tp_command = @import("./commands/tp.zig");
 const unstuck_command = @import("./commands/unstuck.zig");
 const sync_command = @import("./commands/sync.zig");
 const refill_command = @import("./commands/refill.zig");
+const lua_command = @import("./commands/lua.zig");
+const heal_command = @import("./commands/heal.zig");
+const lineup_command = @import("./commands/lineup.zig");
+const buff_command = @import("./commands/buff.zig");
+const mhp_command = @import("./commands/mhp.zig");
+const move_command = @import("./commands/move.zig");
+const pos_command = @import("./commands/pos.zig");
+const reload_command = @import("./commands/reload.zig");
 
 const CommandFn = *const fn (session: *Session, args: []const u8, allocator: Allocator) anyerror!void;
 
@@ -28,21 +36,29 @@ const commandList = [_]Command{
     .{ .name = "node", .action = "", .func = value_command.challengeNode },
     .{ .name = "set", .action = "", .func = value_command.setGachaCommand },
     .{ .name = "tp", .action = "", .func = tp_command.handle },
+    .{ .name = "move", .action = "", .func = move_command.handle },
     .{ .name = "unstuck", .action = "", .func = unstuck_command.handle },
     .{ .name = "sync", .action = "", .func = sync_command.onGenerateAndSync },
+    .{ .name = "reload", .action = "", .func = reload_command.handle },
     .{ .name = "refill", .action = "", .func = refill_command.onRefill },
+    .{ .name = "heal", .action = "", .func = heal_command.handle },
     .{ .name = "id", .action = "", .func = value_command.onBuffId },
+    .{ .name = "buff", .action = "", .func = buff_command.handle },
     .{ .name = "funmode", .action = "", .func = value_command.FunMode },
     .{ .name = "give", .action = "", .func = value_command.give },
     .{ .name = "level", .action = "", .func = value_command.level },
     .{ .name = "info", .action = "", .func = value_command.playerInfo },
     .{ .name = "scene", .action = "", .func = value_command.sceneCommand },
+    .{ .name = "pos", .action = "", .func = pos_command.handle },
     .{ .name = "savelineup", .action = "", .func = value_command.saveLineup },
+    .{ .name = "lineup", .action = "", .func = lineup_command.handle },
     .{ .name = "gender", .action = "", .func = value_command.setGender },
     .{ .name = "path", .action = "", .func = value_command.setPath },
+    .{ .name = "mhp", .action = "", .func = mhp_command.handle },
     .{ .name = "stop", .action = "", .func = value_command.stop },
     .{ .name = "kick", .action = "", .func = value_command.kick },
-    .{ .name = "mail", .action = "", .func = value_command.sendMail },
+    .{ .name = "mail", .action = "", .func = value_command.mailCommand },
+    .{ .name = "lua", .action = "", .func = lua_command.handle },
 };
 
 pub fn handleCommand(session: *Session, msg: []const u8, allocator: Allocator) !void {

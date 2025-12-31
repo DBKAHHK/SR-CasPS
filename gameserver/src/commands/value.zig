@@ -1,22 +1,21 @@
+const std = @import("std");
 const commandhandler = @import("../command.zig");
 const Session = @import("../Session.zig");
-const Config = @import("../data/stage_config.zig");
-const MiscDefaults = @import("../data/misc_defaults.zig");
+const protocol = @import("protocol");
+
 const ConfigManager = @import("../manager/config_mgr.zig");
 const LineupManager = @import("../manager/lineup_mgr.zig");
 const AvatarManager = @import("../manager/avatar_mgr.zig");
 const BattleManager = @import("../manager/battle_mgr.zig");
-const Logic = @import("../utils/logic.zig");
+const SceneManager = @import("../manager/scene_mgr.zig");
 const PlayerStateMod = @import("../player_state.zig");
 const ItemDb = @import("../item_db.zig");
-const Sync = @import("sync.zig");
-const protocol = @import("protocol");
-const CmdID = protocol.CmdID;
+const Logic = @import("../utils/logic.zig");
+const MailService = @import("../services/mail.zig");
+const MiscDefaults = @import("../data/misc_defaults.zig");
 
 const Allocator = std.mem.Allocator;
-const ArrayList = std.ArrayList;
-
-var next_mail_id: u32 = 1000;
+const CmdID = protocol.CmdID;
 
 fn isMcId(id: u32) bool {
     return id >= 8001 and id <= 8008;
@@ -34,467 +33,161 @@ fn applyMcToLineups(new_id: u32) void {
 pub fn handle(session: *Session, _: []const u8, allocator: Allocator) !void {
     try commandhandler.sendMessage(session, "Test Command for Chat\n", allocator);
 }
+
 pub fn challengeNode(session: *Session, _: []const u8, allocator: Allocator) !void {
     try commandhandler.sendMessage(session, Logic.CustomMode().ChangeNode(), allocator);
 }
+
 pub fn FunMode(session: *Session, input: []const u8, allocator: Allocator) !void {
-    var args = std.mem.tokenizeAny(u8, input, " ");
-    if (args.next()) |subcmd| {
-        if (std.mem.eql(u8, subcmd, "on")) {
-            Logic.FunMode().SetFunMode(true);
-            const config = &ConfigManager.global_game_config_cache.game_config;
-            var ids = std.ArrayList(u32).init(allocator);
-            defer ids.deinit();
-            var picked_mc = false;
-            var picked_m7th = false;
-            for (config.avatar_config.items) |avatarConf| {
-                const id = switch (avatarConf.id) {
-                    8001...8008 => if (!picked_mc) blk: {
-                        picked_mc = true;
-                        break :blk AvatarManager.getMcId();
-                    } else continue,
-                    1224, 1001 => if (!picked_m7th) blk: {
-                        picked_m7th = true;
-                        break :blk AvatarManager.m7th;
-                    } else continue,
-                    else => avatarConf.id,
-                };
-                try ids.append(id);
-            }
-            try LineupManager.getFunModeAvatarID(ids.items);
-            // 自动保存当前玩家存档以持久化 funmode 编队
-            if (session.player_state) |*state| {
-                try PlayerStateMod.save(state);
-            }
-            try commandhandler.sendMessage(session, "Fun mode ON\n", allocator);
-        } else if (std.mem.eql(u8, subcmd, "off")) {
-            Logic.FunMode().SetFunMode(false);
-            if (session.player_state) |*state| {
-                try PlayerStateMod.save(state);
-            }
-            try commandhandler.sendMessage(session, "Fun mode OFF\n", allocator);
-        } else if (std.mem.eql(u8, subcmd, "hp")) {
-            if (args.next()) |hp_arg| {
-                if (std.mem.eql(u8, hp_arg, "max")) {
-                    Logic.FunMode().SetHp(std.math.maxInt(i32));
-                    try commandhandler.sendMessage(session, "Set HP = MAX (2,147,483,647)\n", allocator);
-                    try commandhandler.sendMessage(session, "Remember to set it back to 0 to use actual HP value\n", allocator);
-                } else {
-                    const parsed = try std.fmt.parseInt(i64, hp_arg, 10);
-                    if (parsed < 0 or parsed > std.math.maxInt(i32)) {
-                        try commandhandler.sendMessage(session, "Error: HP out of range (0 - 2147483647)\n", allocator);
-                    } else {
-                        Logic.FunMode().SetHp(@intCast(parsed));
-                        try commandhandler.sendMessage(
-                            session,
-                            try std.fmt.allocPrint(allocator, "Set HP = {d}\n", .{parsed}),
-                            allocator,
-                        );
-                        try commandhandler.sendMessage(session, "Remember to set it back to 0 to use actual HP value\n", allocator);
-                    }
-                }
-            } else {
-                try commandhandler.sendMessage(session, "Usage: /funmode hp <max|number>\n", allocator);
-            }
-        } else {
-            try commandhandler.sendMessage(session, "Unknown funmode subcommand\n", allocator);
-        }
-    } else {
-        try commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp>\n", allocator);
-    }
-}
-
-pub fn setGachaCommand(session: *Session, args: []const u8, allocator: Allocator) !void {
-    var arg_iter = std.mem.splitSequence(u8, args, " ");
-    const command = arg_iter.next() orelse {
-        try commandhandler.sendMessage(session, "Error: Missing sub-command. Usage: /set <sub-command> [arguments]", allocator);
-        return;
+    var args = std.mem.tokenizeAny(u8, input, " \t");
+    const subcmd = args.next() orelse {
+        return commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp>", allocator);
     };
-    if (std.mem.eql(u8, command, "standard")) {
-        try standard(session, &arg_iter, allocator);
-    } else if (std.mem.eql(u8, command, "rateup")) {
-        const next = arg_iter.next();
-        if (next) |rateup_number| {
-            if (std.mem.eql(u8, rateup_number, "5")) {
-                try gacha5Stars(session, &arg_iter, allocator);
-            } else if (std.mem.eql(u8, rateup_number, "4")) {
-                try gacha4Stars(session, &arg_iter, allocator);
-            } else {
-                try commandhandler.sendMessage(session, "Error: Invalid rateup number. Please use 4 (four stars) or 5 (5 stars).", allocator);
-            }
-        } else {
-            try commandhandler.sendMessage(session, "Error: Missing number for rateup. Usage: /set rateup <number>", allocator);
-        }
-    } else {
-        try commandhandler.sendMessage(session, "Error: Unknown sub-command. Available: standard, rateup 5, rateup 4", allocator);
+
+    if (std.ascii.eqlIgnoreCase(subcmd, "on")) {
+        Logic.FunMode().SetFunMode(true);
+        try commandhandler.sendMessage(session, "Fun mode ON", allocator);
+        if (session.player_state) |*state| try PlayerStateMod.save(state);
+        return;
     }
+    if (std.ascii.eqlIgnoreCase(subcmd, "off")) {
+        Logic.FunMode().SetFunMode(false);
+        try commandhandler.sendMessage(session, "Fun mode OFF", allocator);
+        if (session.player_state) |*state| try PlayerStateMod.save(state);
+        return;
+    }
+    if (std.ascii.eqlIgnoreCase(subcmd, "hp")) {
+        const hp_arg = args.next() orelse return commandhandler.sendMessage(session, "Usage: /funmode hp <max|number>", allocator);
+        if (std.ascii.eqlIgnoreCase(hp_arg, "max")) {
+            Logic.FunMode().SetHp(std.math.maxInt(i32));
+            return commandhandler.sendMessage(session, "Set HP = MAX (2,147,483,647). Set it back to 0 to use real HP.", allocator);
+        }
+        const parsed = std.fmt.parseInt(i64, hp_arg, 10) catch return commandhandler.sendMessage(session, "Usage: /funmode hp <max|number>", allocator);
+        if (parsed < 0 or parsed > std.math.maxInt(i32)) {
+            return commandhandler.sendMessage(session, "Error: HP out of range (0 - 2147483647)", allocator);
+        }
+        Logic.FunMode().SetHp(@intCast(parsed));
+        const msg = try std.fmt.allocPrint(allocator, "Set HP = {d}. Set it back to 0 to use real HP.", .{parsed});
+        defer allocator.free(msg);
+        return commandhandler.sendMessage(session, msg, allocator);
+    }
+
+    try commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp>", allocator);
 }
 
-fn standard(session: *Session, arg_iter: *std.mem.SplitIterator(u8, .sequence), allocator: Allocator) !void {
-    var avatar_ids: [6]u32 = undefined;
-    var count: usize = 0;
-    while (count < 6) {
-        if (arg_iter.next()) |avatar_id_str| {
-            const id = std.fmt.parseInt(u32, avatar_id_str, 10) catch {
-                return sendErrorMessage(session, "Error: Invalid avatar ID. Please provide a valid unsigned 32-bit integer.", allocator);
-            };
-            if (!isValidAvatarId(id)) {
-                return sendErrorMessage(session, "Error: Invalid Avatar ID format.", allocator);
-            }
-            avatar_ids[count] = id;
-            count += 1;
-        } else {
-            break;
-        }
-    }
-    if (arg_iter.next() != null or count != 6) {
-        return sendErrorMessage(session, "Error: You must provide exactly 6 avatar IDs.", allocator);
-    }
-    @memcpy(Logic.Banner().SetStandardBanner(), &avatar_ids);
-    const msg = try std.fmt.allocPrint(allocator, "Set standard banner ID to: {d}, {d}, {d}, {d}, {d}, {d}", .{ avatar_ids[0], avatar_ids[1], avatar_ids[2], avatar_ids[3], avatar_ids[4], avatar_ids[5] });
-    try commandhandler.sendMessage(session, msg, allocator);
+pub fn setGachaCommand(session: *Session, _: []const u8, allocator: Allocator) !void {
+    // Kept as a stub (older servers used this), implement later if needed.
+    try commandhandler.sendMessage(session, "Gacha command not implemented in this build.", allocator);
 }
-fn gacha4Stars(session: *Session, arg_iter: *std.mem.SplitIterator(u8, .sequence), allocator: Allocator) !void {
-    var avatar_ids: [3]u32 = undefined;
-    var count: usize = 0;
-    while (count < 3) {
-        if (arg_iter.next()) |avatar_id_str| {
-            const id = std.fmt.parseInt(u32, avatar_id_str, 10) catch {
-                return sendErrorMessage(session, "Error: Invalid avatar ID. Please provide a valid unsigned 32-bit integer.", allocator);
-            };
-            if (!isValidAvatarId(id)) {
-                return sendErrorMessage(session, "Error: Invalid Avatar ID format.", allocator);
-            }
-            avatar_ids[count] = id;
-            count += 1;
-        } else {
-            break;
-        }
-    }
-    if (arg_iter.next() != null or count != 3) {
-        return sendErrorMessage(session, "Error: You must provide exactly 3 avatar IDs.", allocator);
-    }
-    @memcpy(Logic.Banner().SetRateUpFourStar(), &avatar_ids);
-    const msg = try std.fmt.allocPrint(allocator, "Set 4 star rate up ID to: {d}, {d}, {d}", .{ avatar_ids[0], avatar_ids[1], avatar_ids[2] });
-    try commandhandler.sendMessage(session, msg, allocator);
-}
-fn gacha5Stars(session: *Session, arg_iter: *std.mem.SplitIterator(u8, .sequence), allocator: Allocator) !void {
-    var avatar_ids: [1]u32 = undefined;
-    if (arg_iter.next()) |avatar_id_str| {
-        const id = std.fmt.parseInt(u32, avatar_id_str, 10) catch {
-            return sendErrorMessage(session, "Error: Invalid avatar ID. Please provide a valid unsigned 32-bit integer.", allocator);
-        };
-        if (!isValidAvatarId(id)) {
-            return sendErrorMessage(session, "Error: Invalid Avatar ID format.", allocator);
-        }
-        avatar_ids[0] = id;
-    } else {
-        return sendErrorMessage(session, "Error: You must provide a rate-up avatar ID.", allocator);
-    }
-    if (arg_iter.next() != null) {
-        return sendErrorMessage(session, "Error: Only one rate-up avatar ID is allowed.", allocator);
-    }
-    @memcpy(Logic.Banner().SetRateUp(), &avatar_ids);
-    const msg = try std.fmt.allocPrint(allocator, "Set rate up ID to: {d}", .{avatar_ids[0]});
-    try commandhandler.sendMessage(session, msg, allocator);
-}
-fn sendErrorMessage(session: *Session, message: []const u8, allocator: Allocator) !void {
-    try commandhandler.sendMessage(session, message, allocator);
-}
-fn isValidAvatarId(avatar_id: u32) bool {
-    return avatar_id >= 1000 and avatar_id <= 9999;
-}
+
 pub fn onBuffId(session: *Session, input: []const u8, allocator: Allocator) !void {
-    if (std.ascii.eqlIgnoreCase(std.mem.trim(u8, input, " "), "info")) {
-        return try onBuffInfo(session, allocator);
+    const trimmed = std.mem.trim(u8, input, " \t");
+    if (trimmed.len == 0) {
+        return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2> | /id info | /id off", allocator);
     }
-    var tokens = std.ArrayList([]const u8).init(allocator);
-    defer tokens.deinit();
-    var iter = std.mem.tokenizeScalar(u8, input, ' ');
-    while (iter.next()) |tok| {
-        try tokens.append(tok);
+
+    if (std.ascii.eqlIgnoreCase(trimmed, "info")) {
+        const msg = try std.fmt.allocPrint(
+            allocator,
+            "CustomMode: {s}, node={d}, challenge_id={d}, buff_id={d}",
+            .{
+                if (Logic.CustomMode().CustomMode()) "ON" else "OFF",
+                if (Logic.CustomMode().FirstNode()) @as(u32, 1) else 2,
+                Logic.CustomMode().GetCustomChallengeID(),
+                Logic.CustomMode().GetCustomBuffID(),
+            },
+        );
+        defer allocator.free(msg);
+        return commandhandler.sendMessage(session, msg, allocator);
     }
-    if (tokens.items.len == 0) {
-        return sendErrorMessage(session, "Error: Missing command arguments.", allocator);
-    }
-    if (std.ascii.eqlIgnoreCase(tokens.items[0], "off")) {
+
+    if (std.ascii.eqlIgnoreCase(trimmed, "off")) {
         Logic.CustomMode().SetCustomMode(false);
-        _ = try commandhandler.sendMessage(session, "Custom mode OFF.", allocator);
-        return;
+        Logic.CustomMode().SetCustomChallengeID(0);
+        Logic.CustomMode().SetCustomBuffID(0);
+        return commandhandler.sendMessage(session, "Custom mode OFF.", allocator);
     }
-    if (tokens.items.len < 6) {
-        return sendErrorMessage(session, "Error: Usage: /id <group_id> floor <n> node <1|2>", allocator);
+
+    var tok = std.mem.tokenizeAny(u8, trimmed, " \t");
+    const group_id_str = tok.next() orelse return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
+    const kw_floor = tok.next() orelse return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
+    const floor_str = tok.next() orelse return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
+    const kw_node = tok.next() orelse return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
+    const node_str = tok.next() orelse return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
+
+    if (!std.ascii.eqlIgnoreCase(kw_floor, "floor") or !std.ascii.eqlIgnoreCase(kw_node, "node")) {
+        return commandhandler.sendMessage(session, "Usage: /id <group_id> floor <n> node <1|2>", allocator);
     }
-    const group_id = std.fmt.parseInt(u32, tokens.items[0], 10) catch return sendErrorMessage(session, "Error: Invalid group ID.", allocator);
-    if (!std.ascii.eqlIgnoreCase(tokens.items[1], "floor")) return sendErrorMessage(session, "Error: Expected 'floor' keyword.", allocator);
-    const floor = std.fmt.parseInt(u32, tokens.items[2], 10) catch return sendErrorMessage(session, "Error: Invalid floor number.", allocator);
-    if (!std.ascii.eqlIgnoreCase(tokens.items[3], "node")) return sendErrorMessage(session, "Error: Expected 'node' keyword.", allocator);
-    const node = std.fmt.parseInt(u8, tokens.items[4], 10) catch return sendErrorMessage(session, "Error: Invalid node number.", allocator);
-    if (node != 1 and node != 2) return sendErrorMessage(session, "Error: Node must be 1 or 2.", allocator);
+
+    const group_id = std.fmt.parseInt(u32, group_id_str, 10) catch return commandhandler.sendMessage(session, "Error: invalid group_id", allocator);
+    const floor = std.fmt.parseInt(u32, floor_str, 10) catch return commandhandler.sendMessage(session, "Error: invalid floor", allocator);
+    const node = std.fmt.parseInt(u32, node_str, 10) catch return commandhandler.sendMessage(session, "Error: invalid node", allocator);
+    if (node != 1 and node != 2) return commandhandler.sendMessage(session, "Error: node must be 1 or 2", allocator);
+
     Logic.CustomMode().SelectCustomNode(node);
-    const challenge_mode = switch (group_id / 1000) {
-        1 => "MoC",
-        2 => "PF",
-        3 => "AS",
-        else => "Unknown",
-    };
-    try commandhandler.sendMessage(session, try std.fmt.allocPrint(allocator, "Challenge mode: {s}", .{challenge_mode}), allocator);
-    const challenge_config = &ConfigManager.global_game_config_cache.challenge_maze_config;
-    const stage_config = &ConfigManager.global_game_config_cache.stage_config;
-    const challenge_entry = for (challenge_config.challenge_config.items) |entry| {
-        if (entry.group_id == group_id and entry.floor == floor)
-            break entry;
+
+    const challenge_cfg = &ConfigManager.global_game_config_cache.challenge_maze_config;
+    const challenge_entry = for (challenge_cfg.challenge_config.items) |entry| {
+        if (entry.group_id == group_id and (entry.floor orelse 0) == floor) break entry;
     } else {
-        return sendErrorMessage(session, "Error: Could not find matching challenge ID.", allocator);
+        return commandhandler.sendMessage(session, "Error: challenge not found for group/floor", allocator);
     };
-    if (tokens.items.len > 5) {
-        const keyword = tokens.items[5];
-        if (std.ascii.eqlIgnoreCase(keyword, "buff")) {
-            if (tokens.items.len < 7) {
-                return sendErrorMessage(session, "Error: Missing buff sub-command (info/set <index>).", allocator);
-            }
-            const sub = tokens.items[6];
-            if (std.ascii.eqlIgnoreCase(sub, "info")) {
-                return sendBuffInfo(session, allocator, group_id, node);
-            } else if (std.ascii.eqlIgnoreCase(sub, "set")) {
-                return sendErrorMessage(session, "Error: Missing buff index for 'set' command.", allocator);
-            } else {
-                const buff_index = std.fmt.parseInt(usize, sub, 10) catch {
-                    return sendErrorMessage(session, "Error: Invalid buff index.", allocator);
-                };
-                if (tokens.items.len < 8 or !std.ascii.eqlIgnoreCase(tokens.items[7], "set")) {
-                    return sendErrorMessage(session, "Error: Expected 'set' after buff index.", allocator);
-                }
-                return handleBuffSetCommand(session, allocator, group_id, node, buff_index, challenge_entry.id);
-            }
-        } else if (std.ascii.eqlIgnoreCase(keyword, "set")) {
-            if ((group_id / 1000) != 1) {
-                return sendErrorMessage(session, "Error: Unexpected 'set' command. Did you mean 'buff <index> set' ?", allocator);
-            }
-            try handleMoCSelectChallenge(session, allocator, challenge_entry.id);
-            return;
-        }
-    }
-    var event_id: ?u32 = null;
-    if (node == 1 and challenge_entry.event_id_list1.items.len > 0) {
-        event_id = challenge_entry.event_id_list1.items[0];
-    } else if (node == 2 and challenge_entry.event_id_list2.items.len > 0) {
-        event_id = challenge_entry.event_id_list2.items[0];
-    }
-    if (event_id == null) {
-        return sendErrorMessage(session, "Error: Could not find matching EventID.", allocator);
-    }
-    if ((group_id / 1000) == 1) {
-        try handleMoCSelectChallenge(session, allocator, challenge_entry.id);
-        return;
-    }
-    for (stage_config.stage_config.items) |stage| {
-        if (stage.stage_id == event_id.?) {
-            try sendStageInfo(session, allocator, group_id, floor, node, stage);
-            return;
-        }
-    }
-    return sendErrorMessage(session, "Error: Stage not found for given EventID.", allocator);
-}
-fn handleMoCSelectChallenge(session: *Session, allocator: Allocator, challenge_id: u32) !void {
-    const line = try std.fmt.allocPrint(allocator, "Selected MoC Challenge ID: {d}", .{challenge_id});
-    try commandhandler.sendMessage(session, line, allocator);
-    Logic.CustomMode().SetCustomChallengeID(challenge_id);
+
+    Logic.CustomMode().SetCustomChallengeID(challenge_entry.id);
     Logic.CustomMode().SetCustomBuffID(0);
     Logic.CustomMode().SetCustomMode(true);
-}
-fn handleBuffSetCommand(session: *Session, allocator: Allocator, group_id: u32, node: u8, buff_index: usize, challenge_id: u32) !void {
-    const buff_config = &ConfigManager.global_game_config_cache.buff_info_config;
-    for (buff_config.text_map_config.items) |entry| {
-        if (entry.group_id == group_id) {
-            const list = if (node == 1) &entry.buff_list1 else &entry.buff_list2;
-            if (buff_index == 0 or buff_index > list.items.len) {
-                return sendErrorMessage(session, "Error: Buff index out of range.", allocator);
-            }
-            const buff = list.items[buff_index - 1];
-            const line = try std.fmt.allocPrint(allocator, "Selected Challenge ID: {d}, Buff ID: {d} - {s}", .{ challenge_id, buff.id, buff.name });
-            try commandhandler.sendMessage(session, line, allocator);
-            Logic.CustomMode().SetCustomChallengeID(challenge_id);
-            Logic.CustomMode().SetCustomBuffID(buff.id);
-            Logic.CustomMode().SetCustomMode(true);
-            return;
-        }
-    }
-    return sendErrorMessage(session, "Error: Buff group ID not found.", allocator);
-}
-fn sendStageInfo(session: *Session, allocator: Allocator, group_id: u32, floor: u32, node: u8, stage: Config.Stage) !void {
-    const header = try std.fmt.allocPrint(allocator, "GroupID: {d}, Floor: {d}, Node: {d}, StageID: {d}", .{ group_id, floor, node, stage.stage_id });
-    try commandhandler.sendMessage(session, header, allocator);
-    for (stage.monster_list.items, 0..) |wave, i| {
-        var msg = try std.fmt.allocPrint(allocator, "wave {d}:", .{i + 1});
-        for (wave.items) |monster_id| {
-            msg = try std.fmt.allocPrint(allocator, "{s} {d},", .{ msg, monster_id });
-        }
-        try commandhandler.sendMessage(session, msg, allocator);
-    }
-}
-fn sendBuffInfo(session: *Session, allocator: Allocator, group_id: u32, node: u8) !void {
-    const buff_config = &ConfigManager.global_game_config_cache.buff_info_config;
-    for (buff_config.text_map_config.items) |entry| {
-        if (entry.group_id == group_id) {
-            const list = if (node == 1) &entry.buff_list1 else &entry.buff_list2;
-            for (list.items) |buff| {
-                const line = try std.fmt.allocPrint(allocator, "id: {d} - {s}", .{ buff.id, buff.name });
-                try commandhandler.sendMessage(session, line, allocator);
-            }
-            return;
-        }
-    }
-    return sendErrorMessage(session, "Error: Buff group ID not found.", allocator);
-}
-pub fn onBuffInfo(session: *Session, allocator: Allocator) !void {
-    const challenge_config = &ConfigManager.global_game_config_cache.challenge_maze_config;
 
-    var max_moc: u32 = 0;
-    var max_pf: u32 = 0;
-    var max_as: u32 = 0;
-
-    for (challenge_config.challenge_config.items) |entry| {
-        const id = entry.group_id;
-        if (id >= 1000 and id < 2000 and id > max_moc) {
-            max_moc = id;
-        } else if (id >= 2000 and id < 3000 and id > max_pf) {
-            max_pf = id;
-        } else if (id >= 3000 and id < 4000 and id > max_as) {
-            max_as = id;
-        }
-    }
-    const msg = try std.fmt.allocPrint(allocator, "Current Challenge IDs: MoC: {d}, PF: {d}, AS: {d}", .{ max_moc, max_pf, max_as });
+    const msg = try std.fmt.allocPrint(allocator, "Selected challenge_id={d} (group={d} floor={d} node={d})", .{ challenge_entry.id, group_id, floor, node });
+    defer allocator.free(msg);
     try commandhandler.sendMessage(session, msg, allocator);
 }
 
-const std = @import("std");
-const mem = std.mem;
-// Session and PlayerStateMod imports are defined above.
+pub fn give(session: *Session, args: []const u8, allocator: Allocator) !void {
+    var it = std.mem.tokenizeAny(u8, args, " \t");
+    const tid_str = it.next() orelse return commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
+    const cnt_str = it.next() orelse return commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
+    if (it.next() != null) return commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
 
-pub fn give(session: *Session, args: []const u8, allocator: mem.Allocator) !void {
-    var it = mem.tokenizeAny(u8, args, " \\t");
-    const tid_str = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
-        return;
-    };
-    const cnt_str = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
-        return;
-    };
+    const tid = std.fmt.parseInt(u32, tid_str, 10) catch return commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
+    const count = std.fmt.parseInt(u32, cnt_str, 10) catch return commandhandler.sendMessage(session, "Usage: /give <itemId> <count>", allocator);
+    if (count == 0) return commandhandler.sendMessage(session, "Count must be > 0", allocator);
 
-    const tid = try std.fmt.parseInt(u32, tid_str, 10);
-    const count = try std.fmt.parseInt(u32, cnt_str, 10);
-
-    // Validate item exists (avoid sending IDs the client lacks).
     const cfg_opt = ItemDb.findById(tid);
     if (cfg_opt == null) {
         var buf: [128]u8 = undefined;
         const msg = try std.fmt.bufPrint(&buf, "Unknown item ID: {d} (check items.json)", .{tid});
-        try commandhandler.sendMessage(session, msg, allocator);
-        return;
+        return commandhandler.sendMessage(session, msg, allocator);
     }
-    const cfg = cfg_opt.?;
 
-    // Grant via sync notify only (no save-file writes).
+    if (session.player_state) |*state| {
+        try state.inventory.addMaterial(tid, count);
+        try PlayerStateMod.save(state);
+    }
+
     var sync = protocol.PlayerSyncScNotify.init(allocator);
     try sync.material_list.append(.{ .tid = tid, .num = count });
     try session.send(CmdID.CmdPlayerSyncScNotify, sync);
-
-    var buf: [128]u8 = undefined;
-    const msg = try std.fmt.bufPrint(&buf, "Granted {s} x {d} (ID={d}) via sync", .{ cfg.name, count, tid });
-    try commandhandler.sendMessage(session, msg, allocator);
+    try commandhandler.sendMessage(session, "Granted item via sync.", allocator);
 }
 
-pub fn level(session: *Session, args: []const u8, allocator: mem.Allocator) !void {
-    var it = mem.tokenizeAny(u8, args, " \\t");
-    const lv_str = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /level <value>", allocator);
-        return;
-    };
-
-    const lv = try std.fmt.parseInt(u32, lv_str, 10);
-
-    if (lv < 1 or lv > 70) {
-        try commandhandler.sendMessage(session, "Level must be in 1~70", allocator);
-        return;
-    }
+pub fn level(session: *Session, args: []const u8, allocator: Allocator) !void {
+    var it = std.mem.tokenizeAny(u8, args, " \t");
+    const lv_str = it.next() orelse return commandhandler.sendMessage(session, "Usage: /level <value>", allocator);
+    const lv = std.fmt.parseInt(u32, lv_str, 10) catch return commandhandler.sendMessage(session, "Usage: /level <value>", allocator);
+    if (lv < 1 or lv > 70) return commandhandler.sendMessage(session, "Level must be in 1~70", allocator);
 
     if (session.player_state) |*state| {
         state.level = lv;
         try PlayerStateMod.save(state);
-
-        var buf: [128]u8 = undefined;
-        const msg = try std.fmt.bufPrint(&buf, "Set level to {d}", .{lv});
+        const msg = try std.fmt.allocPrint(allocator, "Set level to {d}", .{lv});
+        defer allocator.free(msg);
         try commandhandler.sendMessage(session, msg, allocator);
     } else {
         try commandhandler.sendMessage(session, "Player save not found", allocator);
     }
 }
 
-pub fn setHp(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
-    // Parse "/hp 123"
-    var it = std.mem.tokenizeScalar(u8, args, ' ');
-    const first = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /hp <value>", allocator);
-        return;
-    };
-
-    const value = std.fmt.parseInt(u32, first, 10) catch {
-        try commandhandler.sendMessage(session, "Usage: /hp <value>", allocator);
-        return;
-    };
-
-    const cfg = &ConfigManager.global_game_config_cache.game_config;
-
-    // Update HP for all avatars (in-memory only).
-    for (cfg.avatar_config.items) |*avatar| {
-        avatar.hp = value;
-    }
-
-    try Sync.onSyncAvatar(session, "", allocator);
-
-    try commandhandler.sendMessage(session, "Updated all avatars HP and synced", allocator);
-}
-
-pub fn sceneCommand(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
-    var it = std.mem.tokenizeAny(u8, args, " \t");
-    const sub = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /scene <pos|reload>", allocator);
-        return;
-    };
-
-    if (std.ascii.eqlIgnoreCase(sub, "pos")) {
-        if (session.player_state) |state| {
-            const pos = state.position;
-            const msg = try std.fmt.allocPrint(allocator, "Position: plane={d}, floor={d}, entry={d}", .{ pos.plane_id, pos.floor_id, pos.entry_id });
-            defer allocator.free(msg);
-            try commandhandler.sendMessage(session, msg, allocator);
-        } else {
-            try commandhandler.sendMessage(session, "No player state; position unavailable", allocator);
-        }
-        return;
-    }
-
-    if (std.ascii.eqlIgnoreCase(sub, "reload")) {
-        // Reload configs to refresh scene data; requires reconnect to apply.
-        ConfigManager.reloadGameConfig() catch {
-            try commandhandler.sendMessage(session, "Scene reload failed (config reload error)", allocator);
-            return;
-        };
-        try commandhandler.sendMessage(session, "Scene config reloaded; reconnect/reauth to apply", allocator);
-        return;
-    }
-
-    try commandhandler.sendMessage(session, "Usage: /scene <pos|reload>", allocator);
-}
-
-pub fn syncSceneReload(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
-    // Alias of /scene reload for convenience
-    try sceneCommand(session, "reload", allocator);
-}
-
-pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
+pub fn playerInfo(session: *Session, _: []const u8, allocator: Allocator) !void {
     if (session.player_state) |state| {
         const msg = try std.fmt.allocPrint(allocator, "UID={d}, Level={d}, WorldLevel={d}, Stamina={d}, MCoin={d}, HCoin={d}, SCoin={d}", .{
             state.uid, state.level, state.world_level, state.stamina, state.mcoin, state.hcoin, state.scoin,
@@ -506,14 +199,12 @@ pub fn playerInfo(session: *Session, _: []const u8, allocator: std.mem.Allocator
     }
 }
 
-pub fn stop(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
-    // Inform client then close connection to force logout.
+pub fn stop(session: *Session, _: []const u8, allocator: Allocator) !void {
     try commandhandler.sendMessage(session, "Server will stop your session", allocator);
     session.close();
 }
 
 pub fn kick(session: *Session, _: []const u8, allocator: Allocator) !void {
-    // Gracefully tell client it is kicked, then close only that connection.
     var notify = protocol.PlayerKickOutScNotify.init(allocator);
     notify.kick_type = .KICK_BY_GM;
     try session.send(CmdID.CmdPlayerKickOutScNotify, notify);
@@ -521,34 +212,13 @@ pub fn kick(session: *Session, _: []const u8, allocator: Allocator) !void {
     session.close();
 }
 
-pub fn saveLineup(session: *Session, _: []const u8, allocator: std.mem.Allocator) !void {
+pub fn saveLineup(session: *Session, _: []const u8, allocator: Allocator) !void {
     if (session.player_state) |*state| {
         try PlayerStateMod.saveLineupToConfig(state);
-        try commandhandler.sendMessage(session, try std.fmt.allocPrint(allocator, "Saved lineup to saves/{d}_lineup.json\n", .{state.uid}), allocator);
+        try commandhandler.sendMessage(session, "Saved lineup to misc.json", allocator);
     } else {
-        try commandhandler.sendMessage(session, "未找到玩家存档\n", allocator);
+        try commandhandler.sendMessage(session, "未找到玩家存档", allocator);
     }
-}
-pub fn syncFreeseData(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
-    _ = args; // 目前不用参数
-
-    // 1) 重载 GameConfig（freesr-data.json）
-    ConfigManager.reloadGameConfig() catch {
-        try commandhandler.sendMessage(session, "重新加载 freesr-data.json 失败", allocator);
-        return;
-    };
-
-    // 2) 重新生成并同步阵容 / 属性（用新的 game_config）
-    try Sync.onGenerateAndSync(session, "", allocator);
-
-    // 3) 同步最新编队到客户端（使用 misc/存档数据，避免面板延迟刷新）
-    var lineup_mgr = LineupManager.LineupManager.init(allocator);
-    const lineup = try lineup_mgr.createLineup();
-    var sync_lineup = protocol.SyncLineupNotify.init(allocator);
-    sync_lineup.lineup = lineup;
-    try session.send(CmdID.CmdSyncLineupNotify, sync_lineup);
-
-    try commandhandler.sendMessage(session, "已重新加载 freesr-data.json，并同步至客户端", allocator);
 }
 
 fn genderToString(g: MiscDefaults.Gender) []const u8 {
@@ -567,84 +237,202 @@ fn pathToString(p: MiscDefaults.Path) []const u8 {
     };
 }
 
-pub fn setGender(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
+pub fn setGender(session: *Session, args: []const u8, allocator: Allocator) !void {
     var it = std.mem.tokenizeAny(u8, args, " \t");
-    const token = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /gender <male|female>", allocator);
-        return;
-    };
+    const token = it.next() orelse return commandhandler.sendMessage(session, "Usage: /gender <male|female>", allocator);
     const gender: MiscDefaults.Gender = blk: {
-        if (std.ascii.eqlIgnoreCase(token, "male")) break :blk .male;
-        if (std.ascii.eqlIgnoreCase(token, "female")) break :blk .female;
-        try commandhandler.sendMessage(session, "Usage: /gender <male|female>", allocator);
-        return;
+        if (std.ascii.eqlIgnoreCase(token, "m") or std.ascii.eqlIgnoreCase(token, "male") or std.ascii.eqlIgnoreCase(token, "boy") or std.ascii.eqlIgnoreCase(token, "man") or std.mem.eql(u8, token, "1")) break :blk .male;
+        if (std.ascii.eqlIgnoreCase(token, "f") or std.ascii.eqlIgnoreCase(token, "female") or std.ascii.eqlIgnoreCase(token, "girl") or std.ascii.eqlIgnoreCase(token, "woman") or std.mem.eql(u8, token, "2")) break :blk .female;
+        return commandhandler.sendMessage(session, "Usage: /gender <male|female>", allocator);
     };
+
+    const prev_gender = ConfigManager.global_misc_defaults.mc_gender;
     const path = ConfigManager.global_misc_defaults.mc_path;
     AvatarManager.setMc(gender, path);
     const mc_id = AvatarManager.getMcId();
     applyMcToLineups(mc_id);
-    const msg = try std.fmt.allocPrint(allocator, "Set Trailblazer gender to {s} (path: {s}, id={d})", .{ genderToString(gender), pathToString(path), mc_id });
-    defer allocator.free(msg);
-    try commandhandler.sendMessage(session, msg, allocator);
+
+    try session.send(CmdID.CmdGetBasicInfoScRsp, protocol.GetBasicInfoScRsp{
+        .gender = if (gender == .male) 1 else 2,
+        .is_gender_set = true,
+        .player_setting_info = .{},
+    });
+    try AvatarManager.syncAvatarData(session, allocator);
+    var lineup_mgr = LineupManager.LineupManager.init(allocator);
+    var sync_lineup = protocol.SyncLineupNotify.init(allocator);
+    sync_lineup.lineup = try lineup_mgr.createLineup();
+    try session.send(CmdID.CmdSyncLineupNotify, sync_lineup);
+
+    if (session.player_state) |*state| try PlayerStateMod.save(state);
+
+    if (prev_gender != gender) {
+        const msg = try std.fmt.allocPrint(allocator, "Set Trailblazer gender to {s} (path: {s}, id={d})", .{ genderToString(gender), pathToString(path), mc_id });
+        defer allocator.free(msg);
+        try commandhandler.sendMessage(session, msg, allocator);
+    } else {
+        try commandhandler.sendMessage(session, "Gender unchanged.", allocator);
+    }
 }
 
-pub fn setPath(session: *Session, args: []const u8, allocator: std.mem.Allocator) !void {
+pub fn setPath(session: *Session, args: []const u8, allocator: Allocator) !void {
     var it = std.mem.tokenizeAny(u8, args, " \t");
-    const token = it.next() orelse {
-        try commandhandler.sendMessage(session, "Usage: /path <warrior|knight|shaman|memory>", allocator);
-        return;
-    };
+    const token = it.next() orelse return commandhandler.sendMessage(session, "Usage: /path <warrior|knight|shaman|memory>", allocator);
     const path: MiscDefaults.Path = blk: {
         if (std.ascii.eqlIgnoreCase(token, "warrior")) break :blk .warrior;
         if (std.ascii.eqlIgnoreCase(token, "knight")) break :blk .knight;
         if (std.ascii.eqlIgnoreCase(token, "shaman")) break :blk .shaman;
         if (std.ascii.eqlIgnoreCase(token, "memory")) break :blk .memory;
-        try commandhandler.sendMessage(session, "Usage: /path <warrior|knight|shaman|memory>", allocator);
-        return;
+        return commandhandler.sendMessage(session, "Usage: /path <warrior|knight|shaman|memory>", allocator);
     };
+
     const gender = ConfigManager.global_misc_defaults.mc_gender;
     AvatarManager.setMc(gender, path);
     const mc_id = AvatarManager.getMcId();
     applyMcToLineups(mc_id);
+
+    try AvatarManager.syncAvatarData(session, allocator);
+    var lineup_mgr = LineupManager.LineupManager.init(allocator);
+    var sync_lineup = protocol.SyncLineupNotify.init(allocator);
+    sync_lineup.lineup = try lineup_mgr.createLineup();
+    try session.send(CmdID.CmdSyncLineupNotify, sync_lineup);
+    if (session.player_state) |*state| try PlayerStateMod.save(state);
+
     const msg = try std.fmt.allocPrint(allocator, "Set Trailblazer path to {s} (gender: {s}, id={d})", .{ pathToString(path), genderToString(gender), mc_id });
     defer allocator.free(msg);
     try commandhandler.sendMessage(session, msg, allocator);
 }
 
-pub fn sendMail(session: *Session, _: []const u8, allocator: Allocator) !void {
+pub fn sceneCommand(session: *Session, args: []const u8, allocator: Allocator) !void {
+    var it = std.mem.tokenizeAny(u8, args, " \t");
+    const sub = it.next() orelse return commandhandler.sendMessage(session, "Usage: /scene <get|pos|reload|planeId floorId>", allocator);
+
+    if (std.ascii.eqlIgnoreCase(sub, "get") or std.ascii.eqlIgnoreCase(sub, "pos")) {
+        if (session.player_state) |state| {
+            const pos = state.position;
+            const msg = try std.fmt.allocPrint(allocator, "Scene: entryId={d}, planeId={d}, floorId={d}, teleportId={d}", .{ pos.entry_id, pos.plane_id, pos.floor_id, pos.teleport_id });
+            defer allocator.free(msg);
+            return commandhandler.sendMessage(session, msg, allocator);
+        }
+        return commandhandler.sendMessage(session, "No player state; position unavailable", allocator);
+    }
+
+    if (std.ascii.eqlIgnoreCase(sub, "reload")) {
+        ConfigManager.reloadGameConfig() catch return commandhandler.sendMessage(session, "Config reload failed", allocator);
+        return commandhandler.sendMessage(session, "Configs reloaded; reconnect/reauth to fully apply", allocator);
+    }
+
+    // Teleport: /scene <planeId> <floorId?>
+    const plane_id = std.fmt.parseInt(u32, sub, 10) catch return commandhandler.sendMessage(session, "Usage: /scene <get|pos|reload|planeId floorId>", allocator);
+
+    const maze_cfg = &ConfigManager.global_game_config_cache.maze_config;
+    const maze_plane = for (maze_cfg.maze_plane_config.items) |m| {
+        if (m.challenge_plane_id == plane_id) break m;
+    } else {
+        return commandhandler.sendMessage(session, "Error: maze plane not found", allocator);
+    };
+
+    const floor_arg = it.next();
+    var floor_id: u32 = if (floor_arg) |s| (std.fmt.parseInt(u32, s, 10) catch 0) else 0;
+    if (floor_id == 0) floor_id = maze_plane.start_floor_id;
+
+    var floor_suffix: u32 = floor_id % 100;
+    if (floor_suffix == 0) floor_suffix = 1;
+    const entry_id: u32 = plane_id * 100 + floor_suffix;
+
+    var teleport_id: u32 = 0;
+    const anchors_cfg = &ConfigManager.global_game_config_cache.anchor_config;
+    const res_cfg = &ConfigManager.global_game_config_cache.res_config;
+
+    const anchor_id_opt: ?u32 = blk: {
+        for (anchors_cfg.anchor_config.items) |a| {
+            if (a.entryID != entry_id) continue;
+            if (a.anchor.items.len == 0) break;
+            break :blk a.anchor.items[0].id;
+        }
+        break :blk null;
+    };
+    if (anchor_id_opt) |anchor_id| {
+        outer: for (res_cfg.scene_config.items) |sceneConf| {
+            for (sceneConf.teleports.items) |tele| {
+                if (tele.anchorId == anchor_id) {
+                    teleport_id = tele.teleportId;
+                    break :outer;
+                }
+            }
+        }
+    }
+
+    if (teleport_id == 0) {
+        // Some entries are missing Anchor.json mappings; fall back to the first teleportId for this
+        // (planeId, entryId) scene, or (most commonly) teleportId == entryId.
+        for (res_cfg.scene_config.items) |sceneConf| {
+            if (sceneConf.planeID != plane_id or sceneConf.entryID != entry_id) continue;
+            if (sceneConf.teleports.items.len > 0) teleport_id = sceneConf.teleports.items[0].teleportId;
+            break;
+        }
+        if (teleport_id == 0) teleport_id = entry_id;
+    }
+
+    var scene_manager = SceneManager.SceneManager.init(allocator);
+    const scene_info = try scene_manager.createScene(plane_id, floor_id, entry_id, teleport_id);
+    var lineup_mgr = LineupManager.LineupManager.init(allocator);
+    const lineup = try lineup_mgr.createLineup();
+    try session.send(CmdID.CmdEnterSceneByServerScNotify, protocol.EnterSceneByServerScNotify{
+        .reason = protocol.EnterSceneReason.ENTER_SCENE_REASON_NONE,
+        .lineup = lineup,
+        .scene = scene_info,
+    });
+
+    if (session.player_state) |*state| {
+        state.position = .{ .plane_id = plane_id, .floor_id = floor_id, .entry_id = entry_id, .teleport_id = teleport_id };
+        try PlayerStateMod.save(state);
+    }
+
+    const msg = try std.fmt.allocPrint(allocator, "Teleported: entryId={d}, planeId={d}, floorId={d}", .{ entry_id, plane_id, floor_id });
+    defer allocator.free(msg);
+    try commandhandler.sendMessage(session, msg, allocator);
+}
+
+pub fn mailCommand(session: *Session, args: []const u8, allocator: Allocator) !void {
     var attachments = std.ArrayList(protocol.Item).init(allocator);
     defer attachments.deinit();
 
-    // Simple gift: some credits + jade. Edit here if you need different loot.
-    try attachments.appendSlice(&[_]protocol.Item{
-        .{ .item_id = 1, .num = 800 },   // Stellar Jade
-        .{ .item_id = 2, .num = 50000 }, // Credits
+    var content_buf = std.ArrayList(u8).init(allocator);
+    defer content_buf.deinit();
+
+    var it = std.mem.tokenizeAny(u8, args, " \t");
+    var first_content = true;
+    while (it.next()) |tok| {
+        const sep_index = std.mem.indexOfAny(u8, tok, ":,");
+        if (sep_index) |idx| {
+            const key_s = tok[0..idx];
+            const val_s = tok[idx + 1 ..];
+            const item_id = std.fmt.parseInt(u32, key_s, 10) catch continue;
+            const num = std.fmt.parseInt(u32, val_s, 10) catch continue;
+            if (num == 0) continue;
+            if (ItemDb.findById(item_id) == null) continue;
+            try attachments.append(.{ .item_id = item_id, .num = num });
+            continue;
+        }
+
+        if (!first_content) try content_buf.append(' ');
+        first_content = false;
+        try content_buf.appendSlice(tok);
+    }
+
+    const uid: u32 = if (session.player_state) |st| st.uid else 1;
+    const content = if (content_buf.items.len == 0) "System Mail" else content_buf.items;
+
+    const mail_id = try MailService.pushMail(uid, .{
+        .sender = "System Mail",
+        .title = "Test",
+        .content = content,
+        .attachments = attachments.items,
     });
 
-    var mail = protocol.ClientMail.init(allocator);
-    mail.id = next_mail_id;
-    mail.sender = .{ .Const = "CastoricePS" };
-    mail.title = .{ .Const = "Console mail" };
-    mail.content = .{ .Const = "Sent from /mail command." };
-    mail.is_read = false;
-    mail.time = std.time.timestamp();
-    mail.expire_time = mail.time + 30 * 24 * 3600;
-    mail.mail_type = protocol.MailType.MAIL_TYPE_STAR;
-    mail.attachment = .{ .item_list = attachments };
-
-    var rsp = protocol.GetMailScRsp.init(allocator);
-    rsp.total_num = 1;
-    rsp.is_end = true;
-    rsp.start = 0;
-    rsp.retcode = 0;
-    try rsp.mail_list.append(mail);
-
     var notify = protocol.NewMailScNotify.init(allocator);
-    try notify.mail_id_list.append(mail.id);
-
+    try notify.mail_id_list.append(mail_id);
     try session.send(CmdID.CmdNewMailScNotify, notify);
-    try session.send(CmdID.CmdGetMailScRsp, rsp);
 
-    next_mail_id += 1;
     try commandhandler.sendMessage(session, "Mail sent.", allocator);
 }

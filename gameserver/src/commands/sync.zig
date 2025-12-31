@@ -71,11 +71,6 @@ pub fn onGenerateAndSync(session: *Session, placeholder: []const u8, allocator: 
     try onSyncAvatar(session, placeholder, allocator);
     try onSyncMultiPath(session, placeholder, allocator);
 
-    // 客户端经常不会在热更新后把角色/装备界面完全刷新干净，容易黑屏。
-    // 这里直接强制客户端重连一次，让它用最新配置重新加载所有数据。
-    var notify = protocol.PlayerKickOutScNotify.init(allocator);
-    notify.kick_type = .KICK_BY_GM;
-    try session.send(CmdID.CmdPlayerKickOutScNotify, notify);
-    try commandhandler.sendMessage(session, "Sync completed. Please reconnect to apply.", allocator);
-    session.close();
+    // 提示玩家自行重连（如遇到热更新后界面未完全刷新/黑屏）
+    try commandhandler.sendMessage(session, "Sync completed. Reconnect if needed to fully refresh client state.", allocator);
 }

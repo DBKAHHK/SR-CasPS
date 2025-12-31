@@ -86,6 +86,14 @@ pub fn onSceneCastSkill(session: *Session, packet: *const Packet, allocator: All
     var monster_battle_info_list = ArrayList(protocol.HitMonsterBattleInfo).init(allocator);
     Highlight("SKILL INDEX: {}", .{req.skill_index});
     Highlight("ATTACKED BY ENTITY ID: {}", .{req.attacked_by_entity_id});
+
+    // Technique animation: consume MP and notify client (best-effort; we don't persist MP yet).
+    if (req.skill_index > 0) {
+        try session.send(CmdID.CmdSceneCastSkillMpUpdateScNotify, protocol.SceneCastSkillMpUpdateScNotify{
+            .cast_entity_id = req.cast_entity_id,
+            .mp = 4,
+        });
+    }
     const is_challenge = Logic.Challenge().ChallengeMode();
     for (req.assist_monster_entity_id_list.items) |id| {
         const attacker_id = req.attacked_by_entity_id;
@@ -150,6 +158,20 @@ pub fn onPVEBattleResult(session: *Session, packet: *const Packet, allocator: Al
 
     // 多关卡高难度副本（MOC/PF/AS）：胜利后自动切到下一关
     if (!Logic.Challenge().ChallengeMode()) return;
+
+    // ChallengePeak: client expects ChallengePeakSettleScNotify after battle; sending normal ChallengeSettleNotify
+    // will cause loading to hang.
+    if (Logic.Challenge().ChallengePeakMode()) {
+        var settle = protocol.ChallengePeakSettleScNotify.init(allocator);
+        settle.peak_id = Logic.Challenge().GetChallengePeakID();
+        settle.is_win = req.end_status == .BATTLE_END_WIN;
+        settle.hard_mode_has_passed = settle.is_win and Logic.Challenge().ChallengePeakHard();
+
+        try session.send(CmdID.CmdChallengePeakSettleScNotify, settle);
+        Logic.Challenge().resetChallengeState();
+        return;
+    }
+
     if (req.end_status != .BATTLE_END_WIN) return;
 
     const challenge_id = Logic.Challenge().GetChallengeID();
@@ -169,10 +191,13 @@ pub fn onPVEBattleResult(session: *Session, packet: *const Packet, allocator: Al
     var next_group_id: ?u32 = null;
     var next_maze_group_id: ?u32 = null;
 
+    var has_second_half_cfg: bool = false;
+
     for (challenge_cfg.challenge_config.items) |challengeConf| {
         if (challengeConf.id != challenge_id) continue;
 
-        const use_first = Logic.CustomMode().FirstNode();
+        const use_first = !Logic.Challenge().InSecondHalf();
+        has_second_half_cfg = challengeConf.event_id_list2.items.len != 0 and challengeConf.npc_monster_id_list2.items.len != 0 and challengeConf.maze_group_id2 != null;
         const event_list = if (use_first) challengeConf.event_id_list1.items else challengeConf.event_id_list2.items;
         const monster_list = if (use_first) challengeConf.npc_monster_id_list1.items else challengeConf.npc_monster_id_list2.items;
 
@@ -187,6 +212,7 @@ pub fn onPVEBattleResult(session: *Session, packet: *const Packet, allocator: Al
         }
         if (idx == null) break;
         const i = idx.?;
+        // No more stages in this half.
         if (i + 1 >= event_list.len or i + 1 >= monster_list.len) break;
 
         next_event_id = event_list[i + 1];
@@ -213,7 +239,31 @@ pub fn onPVEBattleResult(session: *Session, packet: *const Packet, allocator: Al
         break;
     }
 
-    if (next_event_id == null or next_monster_id == null or next_entry_id == null or next_plane_id == null or next_floor_id == null or next_world_id == null or next_group_id == null or next_maze_group_id == null) return;
+    // No next stage in this half: either wait for EnterChallengeNextPhase (MOC/PF/AS 2nd half),
+    // or finish the whole challenge and send settle notify.
+    if (next_event_id == null or next_monster_id == null or next_entry_id == null or next_plane_id == null or next_floor_id == null or next_world_id == null or next_group_id == null or next_maze_group_id == null) {
+        if (!Logic.Challenge().InSecondHalf() and has_second_half_cfg and Logic.Challenge().HasSecondLineup()) {
+            // First half finished; send phase settle so client shows "next phase" and then
+            // client will send EnterChallengeNextPhaseCsReq.
+            var phase_settle = protocol.ChallengeBossPhaseSettleNotify.init(allocator);
+            phase_settle.is_win = true;
+            phase_settle.is_second_half = false;
+            phase_settle.phase = 1;
+            phase_settle.star = 7;
+            phase_settle.challenge_id = challenge_id;
+            try session.send(CmdID.CmdChallengeBossPhaseSettleNotify, phase_settle);
+            return;
+        }
+
+        var settle = protocol.ChallengeSettleNotify.init(allocator);
+        settle.is_win = true;
+        settle.challenge_id = challenge_id;
+        settle.star = 7;
+        settle.challenge_score = 0;
+        settle.score_two = 0;
+        try session.send(CmdID.CmdChallengeSettleNotify, settle);
+        return;
+    }
 
     Logic.Challenge().SetChallengeInfo(
         next_floor_id.?,

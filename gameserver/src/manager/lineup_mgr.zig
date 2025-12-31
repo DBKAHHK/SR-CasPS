@@ -90,8 +90,28 @@ pub fn buildLineup(
         }
         avatar.slot = @intCast(idx);
         avatar.satiety = 0;
-        avatar.hp = 10000;
-        avatar.sp_bar = .{ .cur_sp = 10000, .max_sp = 10000 };
+
+        // HP comes from freesr-data.json avatar config when available.
+        var hp: u32 = 10000;
+        for (config.avatar_config.items) |av| {
+            if (av.id == id) {
+                hp = av.hp;
+                break;
+            }
+        }
+        avatar.hp = hp;
+
+        // Ultimate energy (sp_bar) comes from freesr-data.json avatar config when available.
+        var sp_cur: u32 = 100;
+        var sp_max: u32 = 100;
+        for (config.avatar_config.items) |av| {
+            if (av.id == id) {
+                sp_cur = av.sp;
+                sp_max = av.sp_max;
+                break;
+            }
+        }
+        avatar.sp_bar = .{ .cur_sp = sp_cur * 100, .max_sp = sp_max * 100 };
         avatar.avatar_type = protocol.AvatarType.AVATAR_FORMAL_TYPE;
         try lineup.avatar_list.append(avatar);
     }

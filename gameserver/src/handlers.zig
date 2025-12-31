@@ -52,6 +52,9 @@ pub const HandlerList = [_]struct { CmdID, Action }{
     .{ CmdID.CmdChangeLineupLeaderCsReq, lineup.onChangeLineupLeader },
     .{ CmdID.CmdReplaceLineupCsReq, lineup.onReplaceLineup },
     .{ CmdID.CmdGetCurLineupDataCsReq, lineup.onGetCurLineupData },
+    .{ CmdID.CmdGetAllLineupDataCsReq, lineup.onGetAllLineupData },
+    .{ CmdID.CmdSwitchLineupIndexCsReq, lineup.onSwitchLineupIndex },
+    .{ CmdID.CmdSetLineupNameCsReq, lineup.onSetLineupName },
     //battle
     .{ CmdID.CmdStartCocoonStageCsReq, battle.onStartCocoonStage },
     .{ CmdID.CmdPVEBattleResultCsReq, battle.onPVEBattleResult },
@@ -126,6 +129,7 @@ pub const HandlerList = [_]struct { CmdID, Action }{
     .{ CmdID.CmdGetChallengeCsReq, challenge.onGetChallenge },
     .{ CmdID.CmdGetChallengeGroupStatisticsCsReq, challenge.onGetChallengeGroupStatistics },
     .{ CmdID.CmdStartChallengeCsReq, challenge.onStartChallenge },
+    .{ CmdID.CmdEnterChallengeNextPhaseCsReq, challenge.onEnterChallengeNextPhase },
     .{ CmdID.CmdLeaveChallengeCsReq, challenge.onLeaveChallenge },
     .{ CmdID.CmdLeaveChallengePeakCsReq, challenge.onLeaveChallengePeak },
     .{ CmdID.CmdGetCurChallengeCsReq, challenge.onGetCurChallengeScRsp },
@@ -136,9 +140,10 @@ pub const HandlerList = [_]struct { CmdID, Action }{
     .{ CmdID.CmdReStartChallengePeakCsReq, challenge.onReStartChallengePeak },
     .{ CmdID.CmdSetChallengePeakMobLineupAvatarCsReq, challenge.onSetChallengePeakMobLineupAvatar },
     .{ CmdID.CmdSetChallengePeakBossHardModeCsReq, challenge.onSetChallengePeakBossHardMode },
+    .{ CmdID.CmdConfirmChallengePeakSettleCsReq, challenge.onConfirmChallengePeakSettle },
     .{ CmdID.CmdGetFriendBattleRecordDetailCsReq, challenge.onGetFriendBattleRecordDetail },
 };
-
+// Dummy handlers for packets that can fix random loading issues.
 const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdGetBagCsReq, CmdID.CmdGetBagScRsp },
     .{ CmdID.CmdGetMarkItemListCsReq, CmdID.CmdGetMarkItemListScRsp },
@@ -147,12 +152,6 @@ const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdGetAllLineupDataCsReq, CmdID.CmdGetAllLineupDataScRsp },
     .{ CmdID.CmdGetAllServerPrefsDataCsReq, CmdID.CmdGetAllServerPrefsDataScRsp },
     .{ CmdID.CmdGetMissionDataCsReq, CmdID.CmdGetMissionDataScRsp },
-    .{ CmdID.CmdGetRogueCommonDialogueDataCsReq, CmdID.CmdGetRogueCommonDialogueDataScRsp },
-    .{ CmdID.CmdGetRogueInfoCsReq, CmdID.CmdGetRogueInfoScRsp },
-    .{ CmdID.CmdGetRogueHandbookDataCsReq, CmdID.CmdGetRogueHandbookDataScRsp },
-    .{ CmdID.CmdGetRogueEndlessActivityDataCsReq, CmdID.CmdGetRogueEndlessActivityDataScRsp },
-    .{ CmdID.CmdChessRogueQueryCsReq, CmdID.CmdChessRogueQueryScRsp },
-    .{ CmdID.CmdRogueTournQueryCsReq, CmdID.CmdRogueTournQueryScRsp },
     .{ CmdID.CmdDailyFirstMeetPamCsReq, CmdID.CmdDailyFirstMeetPamScRsp },
     .{ CmdID.CmdGetBattleCollegeDataCsReq, CmdID.CmdGetBattleCollegeDataScRsp },
     .{ CmdID.CmdGetNpcStatusCsReq, CmdID.CmdGetNpcStatusScRsp },
@@ -162,12 +161,10 @@ const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdHeliobusActivityDataCsReq, CmdID.CmdHeliobusActivityDataScRsp },
     .{ CmdID.CmdGetAetherDivideInfoCsReq, CmdID.CmdGetAetherDivideInfoScRsp },
     .{ CmdID.CmdGetMapRotationDataCsReq, CmdID.CmdGetMapRotationDataScRsp },
-    .{ CmdID.CmdPlayerReturnInfoQueryCsReq, CmdID.CmdPlayerReturnInfoQueryScRsp },
     .{ CmdID.CmdGetLevelRewardTakenListCsReq, CmdID.CmdGetLevelRewardTakenListScRsp },
     .{ CmdID.CmdGetMainMissionCustomValueCsReq, CmdID.CmdGetMainMissionCustomValueScRsp },
     .{ CmdID.CmdGetMaterialSubmitActivityDataCsReq, CmdID.CmdGetMaterialSubmitActivityDataScRsp },
     .{ CmdID.CmdRogueTournGetCurRogueCocoonInfoCsReq, CmdID.CmdRogueTournGetCurRogueCocoonInfoScRsp },
-    .{ CmdID.CmdRogueMagicQueryCsReq, CmdID.CmdRogueMagicQueryScRsp },
     .{ CmdID.CmdMusicRhythmDataCsReq, CmdID.CmdMusicRhythmDataScRsp },
     //friendlist
     .{ CmdID.CmdGetFriendApplyListInfoCsReq, CmdID.CmdGetFriendApplyListInfoScRsp },
@@ -177,50 +174,27 @@ const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdGetFriendRecommendListInfoCsReq, CmdID.CmdGetFriendRecommendListInfoScRsp },
     //add
     .{ CmdID.CmdSwitchHandDataCsReq, CmdID.CmdSwitchHandDataScRsp },
-    .{ CmdID.CmdRogueArcadeGetInfoCsReq, CmdID.CmdRogueArcadeGetInfoScRsp },
     .{ CmdID.CmdGetMissionMessageInfoCsReq, CmdID.CmdGetMissionMessageInfoScRsp },
     .{ CmdID.CmdTrainPartyGetDataCsReq, CmdID.CmdTrainPartyGetDataScRsp },
     .{ CmdID.CmdQueryProductInfoCsReq, CmdID.CmdQueryProductInfoScRsp },
     .{ CmdID.CmdGetPamSkinDataCsReq, CmdID.CmdGetPamSkinDataScRsp },
-    .{ CmdID.CmdGetRogueScoreRewardInfoCsReq, CmdID.CmdGetRogueScoreRewardInfoScRsp },
     .{ CmdID.CmdGetQuestRecordCsReq, CmdID.CmdGetQuestRecordScRsp },
     .{ CmdID.CmdGetDailyActiveInfoCsReq, CmdID.CmdGetDailyActiveInfoScRsp },
-    .{ CmdID.CmdGetChessRogueNousStoryInfoCsReq, CmdID.CmdGetChessRogueNousStoryInfoScRsp },
-    .{ CmdID.CmdCommonRogueQueryCsReq, CmdID.CmdCommonRogueQueryScRsp },
     .{ CmdID.CmdGetFightActivityDataCsReq, CmdID.CmdGetFightActivityDataScRsp },
-    .{ CmdID.CmdGetStarFightDataCsReq, CmdID.CmdGetStarFightDataScRsp },
-    .{ CmdID.CmdGetMultipleDropInfoCsReq, CmdID.CmdGetMultipleDropInfoScRsp },
-    .{ CmdID.CmdGetPlayerReturnMultiDropInfoCsReq, CmdID.CmdGetPlayerReturnMultiDropInfoScRsp },
     .{ CmdID.CmdGetShareDataCsReq, CmdID.CmdGetShareDataScRsp },
     .{ CmdID.CmdGetTreasureDungeonActivityDataCsReq, CmdID.CmdGetTreasureDungeonActivityDataScRsp },
-    .{ CmdID.CmdGetAetherDivideChallengeInfoCsReq, CmdID.CmdGetAetherDivideChallengeInfoScRsp },
-    .{ CmdID.CmdGetStrongChallengeActivityDataCsReq, CmdID.CmdGetStrongChallengeActivityDataScRsp },
     .{ CmdID.CmdGetOfferingInfoCsReq, CmdID.CmdGetOfferingInfoScRsp },
     .{ CmdID.CmdClockParkGetInfoCsReq, CmdID.CmdClockParkGetInfoScRsp },
     .{ CmdID.CmdGetGunPlayDataCsReq, CmdID.CmdGetGunPlayDataScRsp },
-    .{ CmdID.CmdGetTrackPhotoActivityDataCsReq, CmdID.CmdGetTrackPhotoActivityDataScRsp },
-    .{ CmdID.CmdGetSwordTrainingDataCsReq, CmdID.CmdGetSwordTrainingDataScRsp },
-    .{ CmdID.CmdGetFightFestDataCsReq, CmdID.CmdGetFightFestDataScRsp },
     .{ CmdID.CmdDifficultyAdjustmentGetDataCsReq, CmdID.CmdDifficultyAdjustmentGetDataScRsp },
-    .{ CmdID.CmdSpaceZooDataCsReq, CmdID.CmdSpaceZooDataScRsp },
     .{ CmdID.CmdGetExpeditionDataCsReq, CmdID.CmdGetExpeditionDataScRsp },
-    .{ CmdID.CmdTravelBrochureGetDataCsReq, CmdID.CmdTravelBrochureGetDataScRsp },
     .{ CmdID.CmdRaidCollectionDataCsReq, CmdID.CmdRaidCollectionDataScRsp },
     .{ CmdID.CmdGetRaidInfoCsReq, CmdID.CmdGetRaidInfoScRsp },
     .{ CmdID.CmdGetLoginActivityCsReq, CmdID.CmdGetLoginActivityScRsp },
     .{ CmdID.CmdGetTrialActivityDataCsReq, CmdID.CmdGetTrialActivityDataScRsp },
     .{ CmdID.CmdGetJukeboxDataCsReq, CmdID.CmdGetJukeboxDataScRsp },
-    .{ CmdID.CmdGetMuseumInfoCsReq, CmdID.CmdGetMuseumInfoScRsp },
-    .{ CmdID.CmdGetTelevisionActivityDataCsReq, CmdID.CmdGetTelevisionActivityDataScRsp },
-    .{ CmdID.CmdGetTrainVisitorRegisterCsReq, CmdID.CmdGetTrainVisitorRegisterScRsp },
-    .{ CmdID.CmdGetBoxingClubInfoCsReq, CmdID.CmdGetBoxingClubInfoScRsp },
-    .{ CmdID.CmdTextJoinQueryCsReq, CmdID.CmdTextJoinQueryScRsp },
     .{ CmdID.CmdGetLoginChatInfoCsReq, CmdID.CmdGetLoginChatInfoScRsp },
-    .{ CmdID.CmdGetFeverTimeActivityDataCsReq, CmdID.CmdGetFeverTimeActivityDataScRsp },
-    .{ CmdID.CmdGetSummonActivityDataCsReq, CmdID.CmdGetSummonActivityDataScRsp },
-    .{ CmdID.CmdTarotBookGetDataCsReq, CmdID.CmdTarotBookGetDataScRsp },
     .{ CmdID.CmdGetMarkChestCsReq, CmdID.CmdGetMarkChestScRsp },
-    .{ CmdID.CmdMatchThreeGetDataCsReq, CmdID.CmdMatchThreeGetDataScRsp },
     .{ CmdID.CmdUpdateTrackMainMissionIdCsReq, CmdID.CmdUpdateTrackMainMissionIdScRsp },
     .{ CmdID.CmdGetNpcMessageGroupCsReq, CmdID.CmdGetNpcMessageGroupScRsp },
     .{ CmdID.CmdGetAllSaveRaidCsReq, CmdID.CmdGetAllSaveRaidScRsp },
@@ -231,16 +205,6 @@ const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdRelicSmartWearGetPlanCsReq, CmdID.CmdRelicSmartWearGetPlanScRsp },
     .{ CmdID.CmdRelicSmartWearGetPinRelicCsReq, CmdID.CmdRelicSmartWearGetPinRelicScRsp },
     .{ CmdID.CmdSetGrowthTargetAvatarCsReq, CmdID.CmdSetGrowthTargetAvatarScRsp },
-    .{ CmdID.CmdFateQueryCsReq, CmdID.CmdFateQueryScRsp },
-    .{ CmdID.CmdGetPlanetFesDataCsReq, CmdID.CmdGetPlanetFesDataScRsp },
-    .{ CmdID.CmdParkourGetDataCsReq, CmdID.CmdParkourGetDataScRsp },
-    .{ CmdID.CmdMatchThreeV2GetDataCsReq, CmdID.CmdMatchThreeV2GetDataScRsp },
-    .{ CmdID.CmdGetMonopolyInfoCsReq, CmdID.CmdGetMonopolyInfoScRsp },
-    .{ CmdID.CmdMonopolyGetRegionProgressCsReq, CmdID.CmdMonopolyGetRegionProgressScRsp },
-    .{ CmdID.CmdGetMbtiReportCsReq, CmdID.CmdGetMbtiReportScRsp },
-    .{ CmdID.CmdGetDrinkMakerDataCsReq, CmdID.CmdGetDrinkMakerDataScRsp },
-    .{ CmdID.CmdChimeraGetDataCsReq, CmdID.CmdChimeraGetDataScRsp },
-    .{ CmdID.CmdMarbleGetDataCsReq, CmdID.CmdMarbleGetDataScRsp },
     .{ CmdID.CmdGetPreAvatarActivityListCsReq, CmdID.CmdGetPreAvatarActivityListScRsp },
     .{ CmdID.CmdGetUnreleasedBlockInfoCsReq, CmdID.CmdGetUnreleasedBlockInfoScRsp },
     .{ CmdID.CmdPBPIGABCJED, CmdID.CmdABJBJOCBPLH },
@@ -248,35 +212,261 @@ const DummyCmdList = [_]struct { CmdID, CmdID }{
     .{ CmdID.CmdOCPJHDOFIMC, CmdID.CmdKGIPBNHOJLG },
     .{ CmdID.CmdCJGIAPJKIDL, CmdID.CmdDAEDKDPBMIM },
     .{ CmdID.CmdHEDNPLNCICC, CmdID.CmdGJDJCDBBHOE },
-    .{ CmdID.CmdLCCNLFAHCBA, CmdID.CmdNKEJNOCLJEA },
     .{ CmdID.CmdAIEAADPOFKA, CmdID.CmdDAHLBDGMHCH },
     .{ CmdID.CmdOPHHNPGIKNK, CmdID.CmdHAIBDDPANJJ },
 };
 
-const SuppressLogList = [_]CmdID{CmdID.CmdSceneEntityMoveCsReq};
+const SuppressLogList = [_]CmdID{
+    CmdID.CmdSceneEntityMoveCsReq,
+    // Spammy packets seen in logs.txt; suppress to avoid log/CPU overhead.
+    CmdID.CmdSceneUpdatePositionVersionNotify,
+    CmdID.CmdCEMEPHAFBEN,
+    CmdID.CmdPKBPGMGMDAC,
+};
+
+fn isSuppressed(cmd_id_u32: u32) bool {
+    for (SuppressLogList) |c| {
+        if (@intFromEnum(c) == cmd_id_u32) return true;
+    }
+    return false;
+}
+
+fn fnv1a64(s: []const u8) u64 {
+    var h: u64 = 14695981039346656037;
+    for (s) |c| {
+        h ^= c;
+        h *%= 1099511628211;
+    }
+    return h;
+}
+
+fn hashU32(x: u32) u64 {
+    // FNV-1a over the 4 bytes; stable and cheap.
+    var h: u64 = 14695981039346656037;
+    h ^= @as(u8, @truncate(x));
+    h *%= 1099511628211;
+    h ^= @as(u8, @truncate(x >> 8));
+    h *%= 1099511628211;
+    h ^= @as(u8, @truncate(x >> 16));
+    h *%= 1099511628211;
+    h ^= @as(u8, @truncate(x >> 24));
+    h *%= 1099511628211;
+    return h;
+}
+
+fn nextPow2(n: usize) usize {
+    var p: usize = 1;
+    while (p < n) p <<= 1;
+    return p;
+}
+
+const HandlerEntry = struct {
+    used: bool = false,
+    cs: u32 = 0,
+    func: Action = undefined,
+};
+
+const HandlerTable = blk: {
+    @setEvalBranchQuota(500_000);
+    const size = nextPow2(@max(HandlerList.len * 2, 64));
+    const mask = size - 1;
+    var table: [size]HandlerEntry = [_]HandlerEntry{.{}} ** size;
+
+    for (HandlerList) |h| {
+        const cs_u32: u32 = @intFromEnum(h[0]);
+        var idx: usize = @intCast(hashU32(cs_u32) & mask);
+        while (table[idx].used) : (idx = (idx + 1) & mask) {}
+        table[idx] = .{ .used = true, .cs = cs_u32, .func = h[1] };
+    }
+
+    break :blk table;
+};
+
+fn findHandler(cmd_id_u32: u32) ?Action {
+    const mask = HandlerTable.len - 1;
+    var idx: usize = @intCast(hashU32(cmd_id_u32) & mask);
+    var probes: usize = 0;
+    while (probes < HandlerTable.len) : (probes += 1) {
+        const e = HandlerTable[idx];
+        if (!e.used) return null;
+        if (e.cs == cmd_id_u32) return e.func;
+        idx = (idx + 1) & mask;
+    }
+    return null;
+}
+
+const NameEntry = struct {
+    used: bool = false,
+    id: u32 = 0,
+    name: []const u8 = "",
+};
+
+const CmdIdNameTable = blk: {
+    @setEvalBranchQuota(2_000_000);
+    const fields = @typeInfo(CmdID).@"enum".fields;
+    const size = nextPow2(@max(fields.len * 2, 64));
+    const mask = size - 1;
+    var table: [size]NameEntry = [_]NameEntry{.{}} ** size;
+
+    for (fields) |f| {
+        const id_u32: u32 = @intCast(f.value);
+        var idx: usize = @intCast(hashU32(id_u32) & mask);
+        while (table[idx].used) : (idx = (idx + 1) & mask) {}
+        table[idx] = .{ .used = true, .id = id_u32, .name = f.name };
+    }
+
+    break :blk table;
+};
+
+fn cmdNameFromId(cmd_id_u32: u32) ?[]const u8 {
+    const mask = CmdIdNameTable.len - 1;
+    var idx: usize = @intCast(hashU32(cmd_id_u32) & mask);
+    var probes: usize = 0;
+    while (probes < CmdIdNameTable.len) : (probes += 1) {
+        const e = CmdIdNameTable[idx];
+        if (!e.used) return null;
+        if (e.id == cmd_id_u32) return e.name;
+        idx = (idx + 1) & mask;
+    }
+    return null;
+}
+
+const ScBaseEntry = struct {
+    used: bool = false,
+    hash: u64 = 0,
+    base: []const u8 = "",
+    sc: CmdID = CmdID.CmdPlayerGetTokenCsReq, // placeholder (unused when used=false)
+};
+
+const AutoReplyEntry = struct {
+    used: bool = false,
+    cs: u32 = 0,
+    sc: CmdID = CmdID.CmdPlayerGetTokenCsReq, // placeholder
+};
+
+const AutoReplyTable = blk: {
+    @setEvalBranchQuota(2_000_000);
+    const fields = @typeInfo(CmdID).@"enum".fields;
+
+    // Build a base-name -> ScRsp CmdID hash table for fast comptime lookup.
+    var sc_count: usize = 0;
+    for (fields) |f| {
+        if (std.mem.endsWith(u8, f.name, "ScRsp")) sc_count += 1;
+    }
+    const sc_table_size = nextPow2(@max(sc_count * 2, 64));
+    var sc_table: [sc_table_size]ScBaseEntry = [_]ScBaseEntry{.{}} ** sc_table_size;
+    const sc_mask = sc_table_size - 1;
+
+    for (fields) |f| {
+        if (!std.mem.endsWith(u8, f.name, "ScRsp")) continue;
+        const base = f.name[0 .. f.name.len - "ScRsp".len];
+        const h = fnv1a64(base);
+        var idx: usize = @intCast(h & sc_mask);
+        while (sc_table[idx].used) : (idx = (idx + 1) & sc_mask) {}
+        sc_table[idx] = .{ .used = true, .hash = h, .base = base, .sc = @enumFromInt(f.value) };
+    }
+
+    const findScByBase = struct {
+        fn f(sc_table_inner: []const ScBaseEntry, sc_mask_inner: usize, base: []const u8, h: u64) ?CmdID {
+            var idx: usize = @intCast(h & sc_mask_inner);
+            var probes: usize = 0;
+            while (probes < sc_table_inner.len) : (probes += 1) {
+                const e = sc_table_inner[idx];
+                if (!e.used) return null;
+                if (e.hash == h and std.mem.eql(u8, e.base, base)) return e.sc;
+                idx = (idx + 1) & sc_mask_inner;
+            }
+            return null;
+        }
+    }.f;
+
+    // Count CsReq that have a matching ScRsp.
+    var pair_count: usize = 0;
+    for (fields) |f| {
+        if (!std.mem.endsWith(u8, f.name, "CsReq")) continue;
+        const base = f.name[0 .. f.name.len - "CsReq".len];
+        const h = fnv1a64(base);
+        if (findScByBase(&sc_table, sc_mask, base, h) != null) pair_count += 1;
+    }
+
+    const table_size = nextPow2(@max(pair_count * 2, 64));
+    var table: [table_size]AutoReplyEntry = [_]AutoReplyEntry{.{}} ** table_size;
+    const mask = table_size - 1;
+
+    for (fields) |f| {
+        if (!std.mem.endsWith(u8, f.name, "CsReq")) continue;
+        const base = f.name[0 .. f.name.len - "CsReq".len];
+        const h = fnv1a64(base);
+        const sc = findScByBase(&sc_table, sc_mask, base, h) orelse continue;
+
+        const cs_u32: u32 = @intCast(f.value);
+        const key_hash = hashU32(cs_u32);
+        var idx: usize = @intCast(key_hash & mask);
+        while (table[idx].used) : (idx = (idx + 1) & mask) {}
+        table[idx] = .{ .used = true, .cs = cs_u32, .sc = sc };
+    }
+
+    break :blk table;
+};
+
+fn autoReplySc(cmd_id_u32: u32) ?CmdID {
+    const mask = AutoReplyTable.len - 1;
+    var idx: usize = @intCast(hashU32(cmd_id_u32) & mask);
+    var probes: usize = 0;
+    while (probes < AutoReplyTable.len) : (probes += 1) {
+        const e = AutoReplyTable[idx];
+        if (!e.used) return null;
+        if (e.cs == cmd_id_u32) return e.sc;
+        idx = (idx + 1) & mask;
+    }
+    return null;
+}
 
 pub fn handle(session: *Session, packet: *const Packet) !void {
     var arena = ArenaAllocator.init(session.allocator);
     defer arena.deinit();
 
-    const cmd_id: CmdID = @enumFromInt(packet.cmd_id);
+    const cmd_id_u32: u32 = packet.cmd_id;
 
-    inline for (HandlerList) |handler| {
-        if (handler[0] == cmd_id) {
-            try handler[1](session, packet, arena.allocator());
-            if (!std.mem.containsAtLeast(CmdID, &SuppressLogList, 1, &[_]CmdID{cmd_id})) {
-                log.debug("packet {} was handled", .{cmd_id});
+    if (findHandler(cmd_id_u32)) |handler_fn| {
+        try handler_fn(session, packet, arena.allocator());
+        if (!isSuppressed(cmd_id_u32)) {
+            if (cmdNameFromId(cmd_id_u32)) |name| {
+                log.debug("packet {s}({}) was handled", .{ name, cmd_id_u32 });
+            } else {
+                log.debug("packet id {} was handled", .{cmd_id_u32});
             }
-            return;
         }
+        return;
     }
 
     inline for (DummyCmdList) |pair| {
-        if (pair[0] == cmd_id) {
+        if (@intFromEnum(pair[0]) == cmd_id_u32) {
             try session.send_empty(pair[1]);
             return;
         }
     }
 
-    log.warn("packet {} was ignored", .{cmd_id});
+    if (autoReplySc(cmd_id_u32)) |sc| {
+        try session.send_empty(sc);
+        if (!isSuppressed(cmd_id_u32)) {
+            const sc_u32: u32 = @intFromEnum(sc);
+            if (cmdNameFromId(cmd_id_u32)) |cs_name| {
+                if (cmdNameFromId(sc_u32)) |sc_name| {
+                    log.debug("auto-replied {s}({}) -> {s}({})", .{ cs_name, cmd_id_u32, sc_name, sc_u32 });
+                } else {
+                    log.debug("auto-replied {s}({}) -> id {}", .{ cs_name, cmd_id_u32, sc_u32 });
+                }
+            } else {
+                log.debug("auto-replied empty rsp for id {}", .{cmd_id_u32});
+            }
+        }
+        return;
+    }
+
+    if (cmdNameFromId(cmd_id_u32)) |name| {
+        log.warn("packet {s}({}) was ignored", .{ name, cmd_id_u32 });
+    } else {
+        log.warn("packet id {} was ignored", .{cmd_id_u32});
+    }
 }

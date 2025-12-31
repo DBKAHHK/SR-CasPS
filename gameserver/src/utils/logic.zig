@@ -44,8 +44,16 @@ pub fn Challenge() type {
 
         var challenge_peak_hard: bool = true;
         var on_peak_king_stage: bool = false;
+        var on_challenge_peak: bool = false;
+        var challenge_peak_id: u32 = 0;
 
         var avatar_list: std.ArrayList(u32) = std.ArrayList(u32).init(std.heap.page_allocator);
+        var first_lineup: std.ArrayList(u32) = std.ArrayList(u32).init(std.heap.page_allocator);
+        var second_lineup: std.ArrayList(u32) = std.ArrayList(u32).init(std.heap.page_allocator);
+
+        var challenge_buff_one: u32 = 0;
+        var challenge_buff_two: u32 = 0;
+        var in_second_half: bool = false;
 
         pub fn GetAvatarIDs() std.ArrayList(u32) {
             return avatar_list;
@@ -54,6 +62,40 @@ pub fn Challenge() type {
             for (ids) |id| {
                 try avatar_list.append(id);
             }
+        }
+
+        pub fn SetChallengeLineups(first: []const u32, second: []const u32) !void {
+            _ = first_lineup.clearRetainingCapacity();
+            _ = second_lineup.clearRetainingCapacity();
+            try first_lineup.appendSlice(first);
+            try second_lineup.appendSlice(second);
+        }
+        pub fn HasSecondLineup() bool {
+            return second_lineup.items.len != 0;
+        }
+        pub fn UseFirstLineup() !void {
+            _ = avatar_list.clearRetainingCapacity();
+            try avatar_list.appendSlice(first_lineup.items);
+            in_second_half = false;
+        }
+        pub fn UseSecondLineup() !void {
+            _ = avatar_list.clearRetainingCapacity();
+            try avatar_list.appendSlice(second_lineup.items);
+            in_second_half = true;
+        }
+        pub fn InSecondHalf() bool {
+            return in_second_half;
+        }
+
+        pub fn SetChallengeBuffs(buff_one: u32, buff_two: u32) void {
+            challenge_buff_one = buff_one;
+            challenge_buff_two = buff_two;
+        }
+        pub fn GetChallengeBuffOne() u32 {
+            return challenge_buff_one;
+        }
+        pub fn GetChallengeBuffTwo() u32 {
+            return challenge_buff_two;
         }
 
         pub fn resetChallengeState() void {
@@ -70,8 +112,16 @@ pub fn Challenge() type {
             challenge_stageID = 0;
             challengeID = 0;
             challenge_buffID = 0;
+            challenge_buff_one = 0;
+            challenge_buff_two = 0;
+            in_second_half = false;
+            on_peak_king_stage = false;
+            on_challenge_peak = false;
+            challenge_peak_id = 0;
             _ = challenge_blessing.clearRetainingCapacity();
             _ = avatar_list.clearRetainingCapacity();
+            _ = first_lineup.clearRetainingCapacity();
+            _ = second_lineup.clearRetainingCapacity();
         }
 
         var saved_peak_lineups: std.AutoHashMap(u32, std.ArrayList(u32)) = std.AutoHashMap(u32, std.ArrayList(u32)).init(std.heap.page_allocator);
@@ -95,6 +145,18 @@ pub fn Challenge() type {
         }
         pub fn SetPeakBoss(set: bool) void {
             on_peak_king_stage = set;
+        }
+        pub fn SetChallengePeakActive(set: bool) void {
+            on_challenge_peak = set;
+        }
+        pub fn ChallengePeakMode() bool {
+            return on_challenge_peak;
+        }
+        pub fn SetChallengePeakID(id: u32) void {
+            challenge_peak_id = id;
+        }
+        pub fn GetChallengePeakID() u32 {
+            return challenge_peak_id;
         }
         pub fn ChallengePeakHard() bool {
             return challenge_peak_hard and on_peak_king_stage;

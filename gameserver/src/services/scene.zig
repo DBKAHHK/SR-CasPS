@@ -13,7 +13,8 @@ const Allocator = std.mem.Allocator;
 const CmdID = protocol.CmdID;
 
 const log = std.log.scoped(.scene_service);
-const enable_position_log = false;
+pub var scene_debug_enabled: bool = false;
+var position_log_counter: u32 = 0;
 
 const entrance_config = &ConfigManager.global_game_config_cache.map_entrance_config;
 const res_config = &ConfigManager.global_game_config_cache.res_config;
@@ -44,6 +45,9 @@ pub fn onGetCurSceneInfo(session: *Session, _: *const Packet, allocator: Allocat
         }
     }
 
+    if (scene_debug_enabled) {
+        log.info("[SceneDebug] GetCurSceneInfo: plane_id={} floor_id={} entry_id={} teleport_id={}", .{ plane_id, floor_id, entry_id, teleport_id });
+    }
     const scene_info = try scene_manager.createScene(plane_id, floor_id, entry_id, teleport_id);
 
     try session.send(CmdID.CmdGetCurSceneInfoScRsp, protocol.GetCurSceneInfoScRsp{
@@ -56,8 +60,13 @@ pub fn onSceneEntityMove(session: *Session, packet: *const Packet, allocator: Al
     defer req.deinit();
     for (req.entity_motion_list.items) |entity_motion| {
         if (entity_motion.motion) |motion| {
-            if (enable_position_log and (entity_motion.entity_id > 99999 and entity_motion.entity_id < 1000000 or entity_motion.entity_id == 0))
-                log.debug("[POSITION] entity_id: {}, motion: {}", .{ entity_motion.entity_id, motion });
+            if (scene_debug_enabled and (entity_motion.entity_id > 99999 and entity_motion.entity_id < 1000000 or entity_motion.entity_id == 0)) {
+                position_log_counter +%= 1;
+                if (position_log_counter % 20 == 0) {
+                    // Use info so it shows up even in Release builds (std_options.log_level=.info).
+                    log.info("[SceneDebug][Position] entity_id={} motion={}", .{ entity_motion.entity_id, motion });
+                }
+            }
         }
     }
     try session.send(CmdID.CmdSceneEntityMoveScRsp, protocol.SceneEntityMoveScRsp{
@@ -70,6 +79,10 @@ pub fn onSceneEntityMove(session: *Session, packet: *const Packet, allocator: Al
 pub fn onEnterScene(session: *Session, packet: *const Packet, allocator: Allocator) !void {
     const req = try packet.getProto(protocol.EnterSceneCsReq, allocator);
     defer req.deinit();
+
+    if (scene_debug_enabled) {
+        log.info("[SceneDebug] EnterSceneCsReq: entry_id={} teleport_id={}", .{ req.entry_id, req.teleport_id });
+    }
 
     // 濡傛灉 session 鏈?player_state锛屼粠瀛樻。寮哄埗搴旂敤鏈€鏂扮紪闃熷埌杩愯鏃讹紙淇濊瘉杩涘叆鍦烘櫙鏃朵娇鐢ㄥ瓨妗ｅ€硷級
     if (session.player_state) |*state| {
@@ -101,8 +114,8 @@ pub fn onEnterScene(session: *Session, packet: *const Packet, allocator: Allocat
         .is_over_map = false,
     });
     const scene_info = try scene_manager.createScene(planeID, floorID, req.entry_id, teleportID);
-    if (enable_position_log) {
-        std.debug.print("ENTER SCENE ENTRY ID: {}, PLANE ID: {}, FLOOR ID: {}, TELEPORT ID: {}\n", .{ req.entry_id, planeID, floorID, teleportID });
+    if (scene_debug_enabled) {
+        log.info("[SceneDebug] EnterScene: entry_id={} plane_id={} floor_id={} teleport_id={}", .{ req.entry_id, planeID, floorID, teleportID });
     }
     try session.send(CmdID.CmdEnterSceneByServerScNotify, protocol.EnterSceneByServerScNotify{
         .lineup = lineup,

@@ -152,20 +152,58 @@ pub const SceneManager = struct {
         scene_info.client_pos_version = 1;
         var group_map = std.AutoHashMap(u32, protocol.SceneEntityGroupInfo).init(self.allocator);
         defer group_map.deinit();
+
+        // Resolve spawn transform for this (planeId, entryId):
+        // 1) teleportId match inside this scene
+        // 2) first teleport inside this scene
+        // 3) Anchor.json first anchor for this entry
+        // 4) default (0,0,0)
+        var spawn_pos: protocol.Vector = .{ .x = 0, .y = 0, .z = 0 };
+        var spawn_rot: protocol.Vector = .{ .x = 0, .y = 0, .z = 0 };
+        var have_spawn = false;
+
         for (res_config.scene_config.items) |sceneConf| {
-            for (sceneConf.teleports.items) |teleConf| {
-                if (teleConf.teleportId != teleport_id) continue;
-                var scene_group = protocol.SceneEntityGroupInfo.init(self.allocator);
-                scene_group.state = 1;
-                try addAvatarEntities(&scene_group, config.avatar_config.items, toVector(teleConf.pos), toVector(teleConf.rot), 0);
-                try scene_info.entity_group_list.append(scene_group);
+            if (sceneConf.planeID != plane_id or sceneConf.entryID != entry_id) continue;
+
+            if (teleport_id != 0) {
+                for (sceneConf.teleports.items) |teleConf| {
+                    if (teleConf.teleportId != teleport_id) continue;
+                    spawn_pos = toVector(teleConf.pos);
+                    spawn_rot = toVector(teleConf.rot);
+                    have_spawn = true;
+                    break;
+                }
+            }
+
+            if (!have_spawn and sceneConf.teleports.items.len > 0) {
+                const teleConf = sceneConf.teleports.items[0];
+                spawn_pos = toVector(teleConf.pos);
+                spawn_rot = toVector(teleConf.rot);
+                have_spawn = true;
+            }
+
+            try addPropEntities(self.allocator, &group_map, sceneConf.props.items, &generator);
+            try addMonsterEntities(self.allocator, &group_map, sceneConf.monsters.items, &generator);
+            break;
+        }
+
+        if (!have_spawn) {
+            for (anchors.anchor_config.items) |anchorConf| {
+                if (anchorConf.entryID != entry_id) continue;
+                if (anchorConf.anchor.items.len == 0) break;
+                const a = anchorConf.anchor.items[0];
+                spawn_pos = toVector(a.pos);
+                spawn_rot = toVector(a.rot);
+                have_spawn = true;
                 break;
             }
-            if (sceneConf.planeID == plane_id and sceneConf.entryID == entry_id) {
-                try addPropEntities(self.allocator, &group_map, sceneConf.props.items, &generator);
-                try addMonsterEntities(self.allocator, &group_map, sceneConf.monsters.items, &generator);
-            }
         }
+
+        // Always spawn avatar group so the client can enter the scene even if res.json lacks props/monsters.
+        var scene_group = protocol.SceneEntityGroupInfo.init(self.allocator);
+        scene_group.state = 1;
+        try addAvatarEntities(&scene_group, config.avatar_config.items, spawn_pos, spawn_rot, 1);
+        try scene_info.entity_group_list.append(scene_group);
         var iter = group_map.iterator();
         while (iter.next()) |entry| {
             const g = entry.value_ptr.*;
