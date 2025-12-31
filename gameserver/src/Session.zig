@@ -20,6 +20,7 @@ allocator: Allocator,
 main_allocator: Allocator,
 game_config_cache: *ConfigManager.GameConfigCache,
 pending_lua_script: ?[]u8 = null,
+last_starlite_sent_ms: u64 = 0,
 
 pub fn init(
     address: Address,
@@ -37,6 +38,7 @@ pub fn init(
         .player_state = null,
         .closed = false,
         .pending_lua_script = null,
+        .last_starlite_sent_ms = 0,
     };
 }
 

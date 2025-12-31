@@ -14,6 +14,7 @@ pub fn handle(session: *Session, _: []const u8, allocator: Allocator) !void {
     const lineup = try lineup_mgr.createLineup();
 
     var sync = protocol.SyncLineupNotify.init(allocator);
+    try sync.ReasonList.append(.SYNC_REASON_HP_ADD);
     sync.lineup = lineup;
     try session.send(CmdID.CmdSyncLineupNotify, sync);
     try commandhandler.sendMessage(session, "Healed current lineup (sync).", allocator);

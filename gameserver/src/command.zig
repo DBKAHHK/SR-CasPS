@@ -9,6 +9,7 @@ const CmdID = protocol.CmdID;
 
 const value_command = @import("./commands/value.zig");
 const help_command = @import("./commands/help.zig");
+const help_cn_command = @import("./commands/help_cn.zig");
 const tp_command = @import("./commands/tp.zig");
 const unstuck_command = @import("./commands/unstuck.zig");
 const sync_command = @import("./commands/sync.zig");
@@ -32,6 +33,7 @@ const Command = struct {
 
 const commandList = [_]Command{
     .{ .name = "help", .action = "", .func = help_command.handle },
+    .{ .name = "help_cn", .action = "", .func = help_cn_command.handle },
     .{ .name = "test", .action = "", .func = value_command.handle },
     .{ .name = "node", .action = "", .func = value_command.challengeNode },
     .{ .name = "set", .action = "", .func = value_command.setGachaCommand },

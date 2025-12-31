@@ -41,7 +41,7 @@ pub fn challengeNode(session: *Session, _: []const u8, allocator: Allocator) !vo
 pub fn FunMode(session: *Session, input: []const u8, allocator: Allocator) !void {
     var args = std.mem.tokenizeAny(u8, input, " \t");
     const subcmd = args.next() orelse {
-        return commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp>", allocator);
+        return commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp|lineup>", allocator);
     };
 
     if (std.ascii.eqlIgnoreCase(subcmd, "on")) {
@@ -72,7 +72,71 @@ pub fn FunMode(session: *Session, input: []const u8, allocator: Allocator) !void
         return commandhandler.sendMessage(session, msg, allocator);
     }
 
-    try commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp>", allocator);
+    if (std.ascii.eqlIgnoreCase(subcmd, "lineup")) {
+        const action = args.next() orelse "show";
+
+        if (std.ascii.eqlIgnoreCase(action, "show")) {
+            const list = BattleManager.funmodeAvatarID.items;
+            if (list.len == 0) return commandhandler.sendMessage(session, "Funmode lineup is empty.", allocator);
+
+            var buf = std.ArrayList(u8).init(allocator);
+            defer buf.deinit();
+            try buf.appendSlice("Funmode lineup: ");
+            for (list, 0..) |id, i| {
+                if (i != 0) try buf.appendSlice(", ");
+                try buf.writer().print("{d}", .{id});
+            }
+            try commandhandler.sendMessage(session, buf.items, allocator);
+            return;
+        }
+
+        if (std.ascii.eqlIgnoreCase(action, "clear")) {
+            BattleManager.funmodeAvatarID.clearRetainingCapacity();
+            if (session.player_state) |*state| try PlayerStateMod.save(state);
+            try commandhandler.sendMessage(session, "Funmode lineup cleared.", allocator);
+            return;
+        }
+
+        if (std.ascii.eqlIgnoreCase(action, "set")) {
+            var ids = std.ArrayList(u32).init(allocator);
+            defer ids.deinit();
+
+            while (args.next()) |tok| {
+                const raw_id = std.fmt.parseInt(u32, tok, 10) catch {
+                    return commandhandler.sendMessage(session, "Usage: /funmode lineup set <id1> <id2> <id3> <id4>", allocator);
+                };
+                const id = switch (raw_id) {
+                    8001 => AvatarManager.getMcId(),
+                    1001 => AvatarManager.m7th,
+                    else => raw_id,
+                };
+                try ids.append(id);
+                if (ids.items.len >= 4) break;
+            }
+            if (ids.items.len == 0) {
+                return commandhandler.sendMessage(session, "Usage: /funmode lineup set <id1> <id2> <id3> <id4>", allocator);
+            }
+
+            try LineupManager.getFunModeAvatarID(ids.items);
+            if (session.player_state) |*state| try PlayerStateMod.save(state);
+
+            // If funmode is enabled, refresh client lineup display too.
+            if (Logic.FunMode().FunMode()) {
+                var lineup_mgr = LineupManager.LineupManager.init(allocator);
+                const lineup = try lineup_mgr.createLineup();
+                var sync = protocol.SyncLineupNotify.init(allocator);
+                sync.lineup = lineup;
+                try session.send(CmdID.CmdSyncLineupNotify, sync);
+            }
+
+            try commandhandler.sendMessage(session, "Funmode lineup updated.", allocator);
+            return;
+        }
+
+        return commandhandler.sendMessage(session, "Usage: /funmode lineup <show|set|clear>", allocator);
+    }
+
+    try commandhandler.sendMessage(session, "Usage: /funmode <on|off|hp|lineup>", allocator);
 }
 
 pub fn setGachaCommand(session: *Session, _: []const u8, allocator: Allocator) !void {

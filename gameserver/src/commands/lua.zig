@@ -50,8 +50,11 @@ pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
         return commandhandler.sendMessage(session, msg, allocator);
     };
 
+    // IMPORTANT: `allocator` here is per-packet arena allocator. We must copy into the session
+    // allocator so the buffer outlives the handler call.
+    const owned = try session.allocator.dupe(u8, content);
+
     // Transfer ownership to session; it will be sent once on the next PlayerHeartBeat.
-    session.setPendingLuaScript(content);
+    session.setPendingLuaScript(owned);
     try commandhandler.sendMessage(session, "Lua queued. It will be sent/executed on the next heartbeat.", allocator);
 }
-

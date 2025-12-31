@@ -78,6 +78,11 @@ pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
             var sync = protocol.SyncLineupNotify.init(allocator);
             sync.lineup = lineup_info;
             try session.send(CmdID.CmdSyncLineupNotify, sync);
+            // Help the client refresh its "current lineup index" UI.
+            try session.send(CmdID.CmdSwitchLineupIndexScRsp, protocol.SwitchLineupIndexScRsp{
+                .retcode = 0,
+                .index = idx,
+            });
 
             const msg = try std.fmt.allocPrint(allocator, "Switched to lineup {d}.", .{idx});
             defer allocator.free(msg);

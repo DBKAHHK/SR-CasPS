@@ -368,15 +368,18 @@ fn addMonsterWaves(
             if (detail_wave.items.len == 0) break :detail_block;
 
             for (detail_wave.items) |m| {
-                const mob_hp = if (m.max_hp != 0) m.max_hp else Logic.FunMode().GetHp();
+                const override_hp = Logic.FunMode().GetHp();
+                const mob_hp: u32 = if (override_hp != 0) override_hp else if (m.max_hp != 0) m.max_hp else 10000;
                 var i: u32 = 0;
                 while (i < m.amount) : (i += 1) {
                     try monster_wave.monster_list.append(.{ .monster_id = m.id, .max_hp = mob_hp });
                 }
             }
         } else {
+            const override_hp = Logic.FunMode().GetHp();
+            const mob_hp: u32 = if (override_hp != 0) override_hp else 10000;
             for (wave.items) |mob_id| {
-                try monster_wave.monster_list.append(.{ .monster_id = mob_id, .max_hp = Logic.FunMode().GetHp() });
+                try monster_wave.monster_list.append(.{ .monster_id = mob_id, .max_hp = mob_hp });
             }
         }
         try battle.monster_wave_list.append(monster_wave);

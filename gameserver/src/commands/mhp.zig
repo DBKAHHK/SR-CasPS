@@ -1,45 +1,32 @@
 const commandhandler = @import("../command.zig");
 const std = @import("std");
 const Session = @import("../Session.zig");
-const ConfigManager = @import("../manager/config_mgr.zig");
-const Sync = @import("./sync.zig");
-const protocol = @import("protocol");
-const LineupManager = @import("../manager/lineup_mgr.zig");
+const Logic = @import("../utils/logic.zig");
 
 const Allocator = std.mem.Allocator;
-const CmdID = protocol.CmdID;
 
 pub fn handle(session: *Session, args: []const u8, allocator: Allocator) !void {
     var it = std.mem.tokenizeAny(u8, args, " \t");
     const token = it.next() orelse {
-        return commandhandler.sendMessage(session, "Usage: /mhp <max|number>", allocator);
+        return commandhandler.sendMessage(session, "Usage: /mhp <max|number|0|off>  (sets enemy max HP override for battles)", allocator);
     };
 
     const hp: u32 = blk: {
-        if (std.ascii.eqlIgnoreCase(token, "max")) break :blk 2147483647;
+        if (std.ascii.eqlIgnoreCase(token, "off")) break :blk 0;
+        if (std.ascii.eqlIgnoreCase(token, "max")) break :blk std.math.maxInt(i32);
         const parsed = std.fmt.parseInt(u32, token, 10) catch {
-            return commandhandler.sendMessage(session, "Usage: /mhp <max|number>", allocator);
+            return commandhandler.sendMessage(session, "Usage: /mhp <max|number|0|off>", allocator);
         };
-        if (parsed == 0) return commandhandler.sendMessage(session, "HP must be >= 1", allocator);
         break :blk parsed;
     };
 
-    const cfg = &ConfigManager.global_game_config_cache.game_config;
-    for (cfg.avatar_config.items) |*avatar| {
-        avatar.hp = hp;
-    }
+    // BattleManager uses this value (when non-zero) to override monster max HP for newly created battles.
+    Logic.FunMode().SetHp(hp);
 
-    // Sync avatar data so client refreshes stats.
-    try Sync.onSyncAvatar(session, "", allocator);
-
-    // Also refresh lineup HP shown in UI.
-    var lineup_mgr = LineupManager.LineupManager.init(allocator);
-    const lineup = try lineup_mgr.createLineup();
-    var sync_lineup = protocol.SyncLineupNotify.init(allocator);
-    sync_lineup.lineup = lineup;
-    try session.send(CmdID.CmdSyncLineupNotify, sync_lineup);
-
-    const msg = try std.fmt.allocPrint(allocator, "Set max HP to {d} and synced.", .{hp});
-    defer allocator.free(msg);
+    const msg = if (hp == 0)
+        "Enemy max HP override cleared (use real config values)."
+    else
+        try std.fmt.allocPrint(allocator, "Enemy max HP override set to {d} (applies to newly created battles).", .{hp});
+    defer if (hp != 0) allocator.free(msg);
     try commandhandler.sendMessage(session, msg, allocator);
 }

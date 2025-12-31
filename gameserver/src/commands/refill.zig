@@ -17,6 +17,7 @@ pub fn onRefill(session: *Session, _: []const u8, allocator: Allocator) !void {
     lineup.mp = lineup.max_mp;
 
     var sync = protocol.SyncLineupNotify.init(allocator);
+    try sync.ReasonList.append(.SYNC_REASON_MP_ADD);
     sync.lineup = lineup;
     try session.send(CmdID.CmdSyncLineupNotify, sync);
 }
