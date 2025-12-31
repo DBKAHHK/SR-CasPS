@@ -4,6 +4,7 @@ plugins {
 }
 
 import java.io.File
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 android {
     namespace = "dev.neonteam.castoriceps"
@@ -39,14 +40,17 @@ android {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
-    kotlinOptions {
-        jvmTarget = "17"
-    }
 
     sourceSets {
         getByName("main") {
             jniLibs.srcDirs("src/main/jniLibs")
         }
+    }
+}
+
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 
@@ -70,13 +74,13 @@ val buildCastoricePsSo = tasks.register("buildCastoricePsSo") {
 
         jniLibOutDir.mkdirs()
 
-        exec {
+        project.exec {
             workingDir = programDir
             commandLine(
                 "zig",
                 "build",
                 "-Doptimize=ReleaseFast",
-                "-Dtarget=aarch64-linux-android.26",
+                "-Dtarget=aarch64-linux-android",
             )
         }
 
