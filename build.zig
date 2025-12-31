@@ -23,7 +23,14 @@ pub fn build(b: *std.Build) void {
     } else |_| {} // don't invoke protoc if proto definition doesn't exist
 
     const program = b.dependency("program", dep_opts);
-    b.installArtifact(program.artifact("CastoricePS"));
+    // program/build.zig produces:
+    // - native/desktop: executable "CastoricePS"
+    // - android: shared lib "castoriceps" (libcastoriceps.so)
+    if (target.result.abi == .android) {
+        b.installArtifact(program.artifact("castoriceps"));
+    } else {
+        b.installArtifact(program.artifact("CastoricePS"));
+    }
 
     // Optional: build bundled firefly-go-proxy (Go) and install it next to CastoricePS.
     // Only run for native builds so cross-compiling doesn't require Go toolchains.
@@ -49,15 +56,18 @@ pub fn build(b: *std.Build) void {
         b.getInstallStep().dependOn(&build_proxy_cmd.step);
     }
 
-    const program_cmd = b.addRunArtifact(program.artifact("CastoricePS"));
-    program_cmd.step.dependOn(b.getInstallStep());
+    // Running is only meaningful for native builds.
+    if (target.result.abi != .android) {
+        const program_cmd = b.addRunArtifact(program.artifact("CastoricePS"));
+        program_cmd.step.dependOn(b.getInstallStep());
 
-    if (b.args) |args| {
-        program_cmd.addArgs(args);
+        if (b.args) |args| {
+            program_cmd.addArgs(args);
+        }
+
+        const program_step = b.step("run-program", "Run dispatch and gameserver together");
+        program_step.dependOn(&program_cmd.step);
     }
-
-    const program_step = b.step("run-program", "Run dispatch and gameserver together");
-    program_step.dependOn(&program_cmd.step);
     // "gen-proto"
     const gen_proto = b.step("gen-proto", "generates zig files from protocol buffer definitions");
 
