@@ -1,4 +1,5 @@
 const std = @import("std");
+const builtin = @import("builtin");
 const protobuf = @import("protobuf");
 
 pub fn build(b: *std.Build) void {
@@ -23,6 +24,30 @@ pub fn build(b: *std.Build) void {
 
     const program = b.dependency("program", dep_opts);
     b.installArtifact(program.artifact("CastoricePS"));
+
+    // Optional: build bundled firefly-go-proxy (Go) and install it next to CastoricePS.
+    // Only run for native builds so cross-compiling doesn't require Go toolchains.
+    if (target.result.os.tag == builtin.os.tag and target.result.cpu.arch == builtin.cpu.arch) {
+        const proxy_dir = b.path("fireflygo_proxy");
+        const proxy_exe_name = if (target.result.os.tag == .windows) "firefly-proxy.exe" else "firefly-proxy";
+        const proxy_out = b.pathFromRoot(b.getInstallPath(.bin, proxy_exe_name));
+        const build_proxy_cmd = b.addSystemCommand(&.{
+            "go",
+            "build",
+            "-trimpath",
+            "-ldflags=-s -w",
+            "-o",
+            proxy_out,
+            ".",
+        });
+        build_proxy_cmd.setCwd(proxy_dir);
+        if (target.result.os.tag == .windows) {
+            build_proxy_cmd.setEnvironmentVariable("GOOS", "windows");
+            build_proxy_cmd.setEnvironmentVariable("GOARCH", "amd64");
+            build_proxy_cmd.setEnvironmentVariable("CGO_ENABLED", "0");
+        }
+        b.getInstallStep().dependOn(&build_proxy_cmd.step);
+    }
 
     const program_cmd = b.addRunArtifact(program.artifact("CastoricePS"));
     program_cmd.step.dependOn(b.getInstallStep());
